@@ -54,3 +54,6 @@ from .materials import router as materials_router
 from .finance import router as finance_router
 app.include_router(materials_router)
 app.include_router(finance_router)
+
+from .field import router as field_router
+app.include_router(field_router)
