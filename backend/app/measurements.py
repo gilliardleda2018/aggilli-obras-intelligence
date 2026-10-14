@@ -31,6 +31,10 @@ class MeasureCreate(BaseModel):
 def create_service(project_id: str, payload: ServiceCreate, subject: str = Depends(require_identity),
                    db: Session = Depends(get_db)):
     project = access(db, subject, project_id, ["OWNER","ADMIN","ENGINEER"])
+    db.scalar(select(Project).where(Project.id == project.id).with_for_update())
+    existing = db.scalars(select(ServiceItem).where(ServiceItem.project_id == project.id)).all()
+    if sum((s.weight for s in existing), Decimal(0)) + payload.weight > 100:
+        raise HTTPException(status_code=409, detail="Service weights exceed 100")
     item = ServiceItem(project_id=project.id, **payload.model_dump())
     db.add(item)
     db.flush()
