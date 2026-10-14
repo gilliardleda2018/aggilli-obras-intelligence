@@ -43,3 +43,6 @@ def health():
 @app.get("/api/v1/demo/project")
 def demo_project():
     return {**DEMO.model_dump(mode="json"), "physical_progress": physical_progress(DEMO.stages)}
+
+from .projects import router as projects_router
+app.include_router(projects_router)
