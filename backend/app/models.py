@@ -57,3 +57,28 @@ class AuditEvent(Base):
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class Material(Base):
+    __tablename__ = "materials"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    unit: Mapped[str] = mapped_column(String(30), nullable=False)
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(3), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class CostEntry(Base):
+    __tablename__ = "cost_entries"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(300), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(16,2), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
