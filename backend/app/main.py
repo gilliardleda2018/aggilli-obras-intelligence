@@ -46,3 +46,6 @@ def demo_project():
 
 from .projects import router as projects_router
 app.include_router(projects_router)
+
+from .measurements import router as measurements_router
+app.include_router(measurements_router)
