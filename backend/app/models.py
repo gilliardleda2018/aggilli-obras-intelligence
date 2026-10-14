@@ -82,3 +82,20 @@ class CostEntry(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(16,2), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class FieldReport(Base):
+    __tablename__ = "field_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    weather: Mapped[str] = mapped_column(String(100), nullable=False)
+    summary: Mapped[str] = mapped_column(String(5000), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class Inspection(Base):
+    __tablename__ = "inspections"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
