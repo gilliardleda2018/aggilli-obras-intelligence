@@ -49,3 +49,8 @@ app.include_router(projects_router)
 
 from .measurements import router as measurements_router
 app.include_router(measurements_router)
+
+from .materials import router as materials_router
+from .finance import router as finance_router
+app.include_router(materials_router)
+app.include_router(finance_router)
