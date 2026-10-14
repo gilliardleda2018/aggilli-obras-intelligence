@@ -99,3 +99,26 @@ class Inspection(Base):
     description: Mapped[str] = mapped_column(String(2000), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class Expense(Base):
+    __tablename__="expenses"
+    id:Mapped[str]=mapped_column(String(36),primary_key=True,default=uid)
+    project_id:Mapped[str]=mapped_column(ForeignKey("projects.id"),nullable=False,index=True)
+    description:Mapped[str]=mapped_column(String(300),nullable=False)
+    supplier:Mapped[str]=mapped_column(String(200),nullable=False)
+    amount:Mapped[Decimal]=mapped_column(Numeric(16,2),nullable=False)
+    category:Mapped[str]=mapped_column(String(20),nullable=False)
+    evidence_key:Mapped[str|None]=mapped_column(String(500),nullable=True)
+    status:Mapped[str]=mapped_column(String(20),nullable=False,default="OPEN")
+    created_by:Mapped[str]=mapped_column(String(200),nullable=False)
+
+class Payment(Base):
+    __tablename__="payments"
+    id:Mapped[str]=mapped_column(String(36),primary_key=True,default=uid)
+    expense_id:Mapped[str]=mapped_column(ForeignKey("expenses.id"),nullable=False,index=True)
+    amount:Mapped[Decimal]=mapped_column(Numeric(16,2),nullable=False)
+    scheduled_date:Mapped[date]=mapped_column(Date,nullable=False)
+    status:Mapped[str]=mapped_column(String(20),nullable=False,default="SCHEDULED")
+    reference:Mapped[str|None]=mapped_column(String(200),nullable=True)
+    created_by:Mapped[str]=mapped_column(String(200),nullable=False)
+    confirmed_by:Mapped[str|None]=mapped_column(String(200),nullable=True)
