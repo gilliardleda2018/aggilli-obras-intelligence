@@ -62,3 +62,6 @@ from .reports import router as reports_router
 from .insights import router as insights_router
 app.include_router(reports_router)
 app.include_router(insights_router)
+
+from .operations import router as operations_router
+app.include_router(operations_router)
