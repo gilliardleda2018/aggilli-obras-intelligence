@@ -26,6 +26,8 @@ export async function GET(request: Request) {
   });
   if(!response.ok)return NextResponse.json({error:"Token exchange failed"},{status:401});
   const data=await response.json();
+  if (data.token_type?.toLowerCase() !== "bearer")
+    return NextResponse.json({error:"Unsupported token type"},{status:401});
   if(typeof data.access_token!=="string"||!data.access_token)
     return NextResponse.json({error:"Invalid token response"},{status:401});
   const iv=randomBytes(12);
