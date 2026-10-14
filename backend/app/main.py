@@ -57,3 +57,8 @@ app.include_router(finance_router)
 
 from .field import router as field_router
 app.include_router(field_router)
+
+from .reports import router as reports_router
+from .insights import router as insights_router
+app.include_router(reports_router)
+app.include_router(insights_router)
