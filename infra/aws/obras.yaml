@@ -24,7 +24,8 @@ Parameters:
     Default: latest
   GithubRepository:
     Type: String
-    Default: gilliardleda2018/aggilli-obras-intelligence
+    Default: gilliardleda2018@42643178/aggilli-obras-intelligence@1419355314
+    Description: Como aparece no sub do token do GitHub (este repositorio usa o formato imutavel, com IDs numericos).
   CreateGithubOidcProvider:
     Type: String
     Default: "true"
@@ -59,6 +60,15 @@ Parameters:
   AnthropicAwsWorkspaceId:
     Type: String
     Default: ""
+  LicenseEnforce:
+    Type: String
+    Default: "0"
+    AllowedValues: ["0", "1"]
+    Description: 1 bloqueia o sistema sem licença válida (ligar depois de ativar a primeira licença).
+  LicenseFarmUid:
+    Type: String
+    Default: ""
+    Description: Identificador do registro reservado a esta instalação no controle de licenças Aggilli.
 
 Conditions:
   MakeOidcProvider: !Equals [!Ref CreateGithubOidcProvider, "true"]
@@ -224,6 +234,25 @@ Resources:
         ExcludeCharacters: ghijklmnopqrstuvwxyz
         RequireEachIncludedType: false
 
+  # Chave de assinatura do login por e-mail e senha (gerada dentro da AWS; ninguém vê).
+  AuthSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: obras/auth
+      Description: Assinatura das sessões do login local
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: LOCAL_AUTH_SECRET
+        PasswordLength: 64
+        ExcludePunctuation: true
+  # Recebe a senha temporária do primeiro dono (scripts/bootstrap_admin.py), lida uma vez no console.
+  BootstrapSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: obras/primeiro-acesso
+      Description: Senha temporária do primeiro dono do sistema
+      SecretString: '{}'
+
   # ---------- Imagens e logs ----------
   ApiRepository:
     Type: AWS::ECR::Repository
@@ -259,7 +288,7 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
-                Resource: [!Ref AppSecret, !GetAtt Database.MasterUserSecret.SecretArn]
+                Resource: [!Ref AppSecret, !Ref AuthSecret, !GetAtt Database.MasterUserSecret.SecretArn]
   ApiTaskRole:
     Type: AWS::IAM::Role
     Properties:
@@ -271,6 +300,7 @@ Resources:
             Statement:
               - {Effect: Allow, Action: [s3:GetObject, s3:PutObject, s3:DeleteObject], Resource: !Sub "${FilesBucket.Arn}/*"}
               - {Effect: Allow, Action: s3:ListBucket, Resource: !GetAtt FilesBucket.Arn}
+              - {Effect: Allow, Action: secretsmanager:PutSecretValue, Resource: !Ref BootstrapSecret}
               # Claude Platform on AWS (leitura de notas). Conferir o nome exato das ações na documentação ao ativar.
               - {Effect: Allow, Action: "aws-external-anthropic:*", Resource: "*"}
   WebTaskRole:
@@ -316,10 +346,14 @@ Resources:
             - {Name: OIDC_JWKS_URL, Value: !Ref OidcJwksUrl}
             - {Name: DOC_AI_PROVIDER, Value: !Ref DocAiProvider}
             - {Name: ANTHROPIC_AWS_WORKSPACE_ID, Value: !Ref AnthropicAwsWorkspaceId}
+            - {Name: OBRAS_LICENSE_ENFORCE, Value: !Ref LicenseEnforce}
+            - {Name: OBRAS_LICENSE_FARM_UID, Value: !Ref LicenseFarmUid}
+            - {Name: BOOTSTRAP_SECRET_ARN, Value: !Ref BootstrapSecret}
           Secrets:
             - {Name: DB_USER, ValueFrom: !Sub "${Database.MasterUserSecret.SecretArn}:username::"}
             - {Name: DB_PASSWORD, ValueFrom: !Sub "${Database.MasterUserSecret.SecretArn}:password::"}
             - {Name: GOOGLE_MAPS_SERVER_KEY, ValueFrom: !Sub "${AppSecret}:GOOGLE_MAPS_SERVER_KEY::"}
+            - {Name: LOCAL_AUTH_SECRET, ValueFrom: !Sub "${AuthSecret}:LOCAL_AUTH_SECRET::"}
           LogConfiguration:
             LogDriver: awslogs
             Options: {awslogs-group: !Ref ApiLogs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: api}
