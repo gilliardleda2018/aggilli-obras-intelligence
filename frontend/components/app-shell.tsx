@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  BellRing, BrainCircuit, Camera, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Camera, FileText, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
@@ -27,6 +27,7 @@ const NAV: {group: string; items: Item[]}[] = [
   ]},
   {group: "Campo", items: [
     {href: "/diario", label: "Diário de obra", icon: Camera},
+    {href: "/documentos", label: "Notas e recibos", icon: FileText},
     {href: "/atividades", label: "Atividades", icon: HardHat},
     {href: "/medicoes", label: "Medições", icon: ClipboardList},
     {href: "/materiais", label: "Materiais", icon: Package},

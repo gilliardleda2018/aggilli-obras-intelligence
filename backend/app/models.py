@@ -162,6 +162,41 @@ class FieldPhoto(Base):
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
 
+class FieldDocument(Base):
+    """Receipt, invoice, quote or payment proof photographed in the field. Stays PENDING until a person checks the values
+    read from it (OCR is only a suggestion) and confirms which work it belongs to; confirming creates the expense."""
+    __tablename__ = "field_documents"
+    __table_args__ = (UniqueConstraint("organization_id", "sha256", name="uq_field_documents_file"),
+                      CheckConstraint("status IN ('PENDING','CONFIRMED','DISCARDED')", name="ck_field_documents_status"),
+                      CheckConstraint("location_source IN ('EXIF','DEVICE')", name="ck_field_documents_location_source"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", name="fk_field_documents_project"), nullable=True, index=True)
+    suggested_project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", name="fk_field_documents_suggested"), nullable=True)
+    suggestion_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    accuracy_m: Mapped[Decimal | None] = mapped_column(Numeric(8,1), nullable=True)
+    location_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    access_key: Mapped[str | None] = mapped_column(String(44), nullable=True, index=True)
+    extraction: Mapped[str | None] = mapped_column(String, nullable=True)  # JSON as read (fields, problems, key)
+    extraction_engine: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    extraction_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    expense_id: Mapped[str | None] = mapped_column(ForeignKey("expenses.id", name="fk_field_documents_expense"), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    confirmed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
 class Inspection(Base):
     __tablename__ = "inspections"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)

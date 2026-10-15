@@ -8,19 +8,18 @@ Whether a photo was taken on site is computed against the project's confirmed lo
 import hashlib
 import io
 import math
-import os
 import warnings
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from PIL import ExifTags, Image, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from . import storage
 from .db import get_db
 from .geo import BRAZIL
 from .measurements import access
@@ -36,13 +35,6 @@ FORMATS = {"JPEG": ("image/jpeg", "jpg"), "PNG": ("image/png", "png"), "WEBP": (
 SITE_RADIUS_M = 300          # a work site plus the street in front of it
 MAX_ACCURACY_MARGIN_M = 500  # a phone reporting worse accuracy than this does not make a far photo "on site"
 LOCAL_TZ = timezone(timedelta(hours=-3))  # Maranhão; used only when EXIF has no offset
-
-
-def storage_dir() -> Path:
-    default = Path(__file__).resolve().parents[2] / ".local" / "photos"
-    path = Path(os.environ.get("PHOTO_STORAGE_DIR") or default)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 def distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -125,6 +117,23 @@ def _local_day(moment: datetime) -> date:
     return _local(moment).date()
 
 
+async def read_image(file: UploadFile) -> tuple[bytes, Image.Image]:
+    """The uploaded bytes and the decoded picture; rejects anything that is not a sane JPEG/PNG/WEBP."""
+    data = await file.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="Foto maior que 15 MB")
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            image = Image.open(io.BytesIO(data))
+            if image.format not in FORMATS or image.width * image.height > MAX_PIXELS:
+                raise HTTPException(status_code=415, detail="Envie uma foto JPEG, PNG ou WEBP")
+            image.verify()
+        return data, Image.open(io.BytesIO(data))  # verify() leaves the object unusable
+    except (UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning, OSError, SyntaxError):
+        raise HTTPException(status_code=415, detail="Arquivo não é uma foto válida")
+
+
 @router.post("/projects/{project_id}/photos", status_code=201)
 async def upload_photo(project_id: str, file: UploadFile = File(...), report_id: str | None = Form(None),
                        service_id: str | None = Form(None), caption: str | None = Form(None),
@@ -145,20 +154,7 @@ async def upload_photo(project_id: str, file: UploadFile = File(...), report_id:
     if caption is not None and len(caption) > 300:
         raise HTTPException(status_code=422, detail="Legenda muito longa (máximo 300 caracteres)")
 
-    data = await file.read(MAX_BYTES + 1)
-    if len(data) > MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Foto maior que 15 MB")
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            image = Image.open(io.BytesIO(data))
-            if image.format not in FORMATS or image.width * image.height > MAX_PIXELS:
-                raise HTTPException(status_code=415, detail="Envie uma foto JPEG, PNG ou WEBP")
-            image.verify()
-        image = Image.open(io.BytesIO(data))  # verify() leaves the object unusable
-    except (UnidentifiedImageError, Image.DecompressionBombError, Image.DecompressionBombWarning, OSError, SyntaxError):
-        raise HTTPException(status_code=415, detail="Arquivo não é uma foto válida")
-
+    data, image = await read_image(file)
     exif = read_exif(image)
     digest = hashlib.sha256(data).hexdigest()
     content_type, ext = FORMATS[image.format]
@@ -183,15 +179,12 @@ async def upload_photo(project_id: str, file: UploadFile = File(...), report_id:
     photo.storage_key = photo.id + "." + ext
     status, meters = place_status(photo, project)
     photo.distance_m = meters
-    target = storage_dir() / photo.storage_key
-    partial = target.with_suffix(".part")
-    partial.write_bytes(data)
-    partial.replace(target)
+    storage.save(photo.storage_key, data, content_type)
     db.add(AuditEvent(organization_id=project.organization_id, subject_id=subject, action="field_photo.create", resource_id=photo.id))
     try:
         db.commit()
     except Exception:
-        target.unlink(missing_ok=True)
+        storage.delete(photo.storage_key)
         raise
     services = dict(db.execute(select(ServiceItem.id, ServiceItem.name).where(ServiceItem.project_id == project.id)).all())
     return photo_json(photo, project, services)
@@ -214,10 +207,10 @@ def photo_file(photo_id: str, subject: str = Depends(require_identity), db: Sess
     if not photo:
         raise HTTPException(status_code=404, detail="Foto não encontrada")
     access(db, subject, photo.project_id, READ_ROLES)
-    path = storage_dir() / photo.storage_key
-    if not path.is_file():
+    data = storage.load(photo.storage_key)
+    if data is None:
         raise HTTPException(status_code=404, detail="Arquivo da foto indisponível")
-    return FileResponse(path, media_type=photo.content_type, headers={"Cache-Control": "private, max-age=86400"})
+    return Response(data, media_type=photo.content_type, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.get("/projects/{project_id}/diary")

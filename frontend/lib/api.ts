@@ -86,3 +86,18 @@ export type Diary = {
   project: {id: string; name: string; located: boolean}; services: {id: string; name: string}[];
   days: {date: string; reports: {id: string; weather: string; summary: string; recorded_by: string}[]; photos: DiaryPhoto[]}[];
 };
+
+export type DocKind = "NOTA_FISCAL" | "RECIBO" | "ORCAMENTO" | "COMPROVANTE" | "OUTRO";
+export type FieldDoc = {
+  id: string; status: "PENDING" | "CONFIRMED" | "DISCARDED"; kind: DocKind | null; kind_label: string | null; url: string;
+  width: number; height: number; project_id: string | null; project: string | null;
+  suggested_project_id: string | null; suggested_project: string | null; suggestion_reason: string | null;
+  latitude: number | null; longitude: number | null; location_source: "EXIF" | "DEVICE" | null; access_key: string | null;
+  nfe: {access_key: string; uf: string; year_month: string; cnpj: string; model: string; series: string; number: string} | null;
+  engine: string | null; read_error: string | null; problems: string[];
+  draft: {supplier: string; supplier_cnpj: string | null; description: string; amount: string | null; expense_date: string | null;
+    document_number: string | null; category: string | null; category_reason: string | null;
+    items: {description: string; quantity: number | null; unit: string | null; total: number | null}[];
+    site_reference: string | null; confidence: "high" | "medium" | "low" | null; issues: string[]};
+  expense_id: string | null; recorded_by: string; created_at: string; taken_at: string | null; confirmed_by: string | null;
+};

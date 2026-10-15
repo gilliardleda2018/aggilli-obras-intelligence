@@ -86,3 +86,6 @@ app.include_router(geo_router)
 
 from .diary import router as diary_router
 app.include_router(diary_router)
+
+from .documents import router as documents_router
+app.include_router(documents_router)
