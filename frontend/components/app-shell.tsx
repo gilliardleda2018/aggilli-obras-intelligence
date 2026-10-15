@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  Building2, CalendarClock, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BrainCircuit, Building2, CalendarClock, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
@@ -11,6 +11,7 @@ type Item = {href: string; label: string; icon: typeof LayoutDashboard; soon?: b
 const NAV: {group: string; items: Item[]}[] = [
   {group: "Visão", items: [
     {href: "/", label: "Visão geral", icon: LayoutDashboard},
+    {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
     {href: "/obras", label: "Obras", icon: Building2},
     {href: "/mapa", label: "Mapa", icon: Map, soon: true},
   ]},
@@ -26,7 +27,7 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/relatorios", label: "Relatórios", icon: FileBarChart, soon: true},
   ]},
 ];
-const MOBILE = ["/", "/obras", "/fopag", "/financeiro", "/atividades"];
+const MOBILE = ["/", "/inteligencia", "/obras", "/fopag", "/medicoes"];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");

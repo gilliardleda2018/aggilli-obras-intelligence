@@ -6,6 +6,8 @@ import {accessToken} from "../../../../lib/session";
 import {getDataset} from "../../../../lib/data";
 import {money, pct, percent, sum} from "../../../../lib/portfolio";
 import {ProjectForm, type ProjectDetails} from "./project-form";
+import {apiGet, type ProjectIntelligence} from "../../../../lib/api";
+import {CostChart, CostSummary, Probability, ProgressChart, ScheduleSummary, br, modelLabel} from "../../../../components/forecast-ui";
 
 export const dynamic = "force-dynamic";
 const API = process.env.API_BASE_URL || "http://localhost:8000";
@@ -26,10 +28,11 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
   const back = <Link href="/obras" className="back"><ArrowLeft/>Obras</Link>;
   const token = await accessToken();
   if (!token) return <>{back}<Callout tone="info" icon={Lock}>Autenticação necessária. <a className="link" href="/login">Entrar</a></Callout></>;
-  const [details, dashboard, data] = await Promise.all([
+  const [details, dashboard, data, intel] = await Promise.all([
     get<ProjectDetails & {name: string; location: string; source: string | null}>("/projects/" + encodeURIComponent(id) + "/details", token),
     get<Dashboard>("/projects/" + encodeURIComponent(id) + "/dashboard", token),
     getDataset(),
+    apiGet<ProjectIntelligence>("/projects/" + encodeURIComponent(id) + "/intelligence"),
   ]);
   if (!details || !dashboard) return <>{back}<Callout icon={Lock}>Obra indisponível ou acesso não autorizado.</Callout></>;
   const row = data.projects.find(project => project.key === id);
@@ -54,6 +57,52 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
       <Kpi label="Em aberto" value={money(sum(payables.map(p => p.outstanding)))} note={payables.length + " despesas sem pagamento comprovado"}
            icon={Scale} tone="warn"/>
     </div>
+
+    {intel && <div className="stack" style={{marginBottom: 18}}>
+      <div className="grid-2">
+        <Card title="Término provável" subtitle={modelLabel(intel.schedule.model, intel.schedule.version)}
+              action={<Probability value={intel.schedule.probability_on_time}/>}>
+          <ScheduleSummary s={intel.schedule}/>
+          {intel.schedule.status === "ok" && <ul className="missing" style={{marginTop: 10}}>
+            <li>Produtividade média {intel.schedule.productivity!.average_pp_per_week.toLocaleString("pt-BR")} p.p./semana · recente{" "}
+              {intel.schedule.productivity!.recent_pp_per_week.toLocaleString("pt-BR")}</li>
+            {intel.schedule.earned_schedule?.spi_t && <li>Earned Schedule: SPI(t) {intel.schedule.earned_schedule.spi_t.toLocaleString("pt-BR")} ·
+              previsto pelo método {br(intel.schedule.earned_schedule.ieac_finish)}</li>}
+            {intel.schedule.factors?.map(f => <li key={f}>{f}</li>)}
+            {!!intel.schedule.critical_services?.length && <li>Serviços críticos: {intel.schedule.critical_services.map(c => c.name + " (" +
+              c.progress.toLocaleString("pt-BR") + "%)").join(", ")}</li>}
+            {intel.schedule.backtest && <li>Retroteste: previu {intel.schedule.backtest.predicted_last_progress.toLocaleString("pt-BR")}% para a última
+              medição; real {intel.schedule.backtest.actual_last_progress.toLocaleString("pt-BR")}%</li>}
+          </ul>}
+        </Card>
+        <Card title="Custo final estimado" subtitle={modelLabel(intel.cost.model, intel.cost.version)}>
+          <CostSummary c={intel.cost}/>
+          {intel.cost.status === "ok" && <ul className="missing" style={{marginTop: 10}}>
+            {intel.cost.earned_value !== undefined && <li>Valor agregado {money(intel.cost.earned_value)} · custo real {money(intel.cost.actual_cost)}
+              {intel.cost.spi ? " · SPI " + intel.cost.spi.toLocaleString("pt-BR") : ""}</li>}
+            {intel.cost.vac !== undefined && <li>{intel.cost.vac < 0 ? "Estouro" : "Folga"} projetado: {money(Math.abs(intel.cost.vac))}</li>}
+            {intel.cost.factors?.map(f => <li key={f}>{f}</li>)}
+          </ul>}
+        </Card>
+      </div>
+      <div className="grid-2">
+        <Card title="Evolução do avanço físico" subtitle="Medido × linha de base × previsão"><ProgressChart data={intel}/></Card>
+        <Card title="Evolução do custo" subtitle="Incorrido acumulado e projeção do custo final"><CostChart data={intel}/></Card>
+      </div>
+      <Card flush title="Como a previsão mudou" subtitle="Cada recálculo fica guardado com modelo e versão">
+        <div className="table-wrap"><table>
+          <thead><tr><th>Quando</th><th>Previsão</th><th>Resultado</th><th>Modelo</th></tr></thead>
+          <tbody>{intel.history.slice(0, 10).map((h, i) => <tr key={i}>
+            <td>{new Date(h.created_at).toLocaleString("pt-BR", {dateStyle: "short", timeStyle: "short"})}</td>
+            <td>{h.kind === "schedule" ? "Término" : "Custo final"}</td>
+            <td>{h.status !== "ok" ? <span className="cell-sub">dados insuficientes</span> : h.kind === "schedule"
+              ? br(String(h.summary.finish_p50)) + " (" + Math.round(Number(h.summary.probability_on_time ?? 0) * 100) + "% no prazo, avanço " + h.summary.current_progress + "%)"
+              : money(Number(h.summary.eac_p50)) + " (gasto " + money(Number(h.summary.actual_cost)) + ")"}</td>
+            <td className="model-tag">{h.model} v{h.version}</td>
+          </tr>)}</tbody>
+        </table></div>
+      </Card>
+    </div>}
 
     <div className="grid-2">
       <div className="stack">
