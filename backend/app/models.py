@@ -57,12 +57,19 @@ class ServiceItem(Base):
 
 class Measurement(Base):
     __tablename__ = "measurements"
+    __table_args__ = (CheckConstraint("status IN ('PENDING','APPROVED','REJECTED')", name="ck_measurements_status"),
+                      CheckConstraint("quantity > 0", name="ck_measurements_quantity"))
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     service_item_id: Mapped[str] = mapped_column(ForeignKey("service_items.id"), nullable=False, index=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    measured_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
