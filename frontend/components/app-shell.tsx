@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  BrainCircuit, Building2, CalendarClock, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BrainCircuit, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
@@ -14,6 +14,9 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
     {href: "/obras", label: "Obras", icon: Building2},
     {href: "/mapa", label: "Mapa", icon: Map, soon: true},
+  ]},
+  {group: "Alimentar", items: [
+    {href: "/importar", label: "Importar planilha", icon: Upload},
   ]},
   {group: "Financeiro", items: [
     {href: "/fopag", label: "FOPAG semanal", icon: CalendarClock},

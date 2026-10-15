@@ -11,7 +11,7 @@ MIN_TRAINING = 20
 RULES = [
     ("FUEL", r"\b(posto|combust|diesel|gasolina|etanol|abastec|oleo diesel|arla)"),
     ("EQUIPMENT", r"\b(munck|guindaste|loca[cç][aã]o|aluguel de (maquina|equip)|retro|escavadeira|betoneira|andaime|patrol|caminh[aã]o)"),
-    ("LABOR", r"\b(pedreiro|servente|pintor|eletricista|encanador|carpinteiro|armador|m[aã]o de obra|diaria|empreit|soldador|serralheir|moveleiro|ajudante)"),
+    ("LABOR", r"\b(pedreiro|servente|pintor|pintura|reboco|assentamento|eletricista|encanador|carpinteiro|armador|m[aã]o de obra|diaria|empreit|soldador|serralheir|moveleiro|ajudante)"),
     ("MATERIAL", r"\b(cimento|areia|brita|tijolo|bloco|ferro|vergalh|telha|cer[aâ]mica|argamassa|tinta|madeira|tubo|conex|fio|cabo|piso|rejunte|cal\b|pia|porta|vidro|box|material)"),
     ("SERVICE", r"\b(sondagem|projeto|consultoria|topograf|frete|transporte|instala[cç][aã]o|plotagem|laudo|servi[cç]o)"),
 ]
