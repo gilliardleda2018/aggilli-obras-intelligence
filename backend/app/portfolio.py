@@ -8,12 +8,12 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from .db import get_db
 from .measurements import access
-from .models import (AuditEvent, Expense, LaborContract, Measurement, Membership, Payment, Project,
+from .models import (AuditEvent, Expense, FieldReport, LaborContract, Measurement, Membership, Payment, Project,
                      PROJECT_STATUSES, ServiceItem)
 from .security import require_identity
 
@@ -62,15 +62,23 @@ def portfolio(subject: str = Depends(require_identity), db: Session = Depends(ge
             select(Expense.project_id, Payment.status, func.sum(Payment.amount)).join(Expense, Payment.expense_id == Expense.id)
             .where(Expense.project_id.in_(ids)).group_by(Expense.project_id, Payment.status)).all():
         payments.setdefault(project_id, {})[status] = amount
-    contracts = {project_id: (total, advance, balance, count) for project_id, total, advance, balance, count in db.execute(
-        select(LaborContract.project_id, func.sum(LaborContract.total), func.sum(LaborContract.reported_advance),
-               func.sum(LaborContract.reported_balance), func.count(LaborContract.id))
-        .where(LaborContract.project_id.in_(ids)).group_by(LaborContract.project_id)).all()}
+    # advance_valued: advances of contracts that have a total, so the advance ratio never mixes unknown totals.
+    valued = case((LaborContract.total.is_not(None), LaborContract.reported_advance), else_=None)
+    contracts = {project_id: (total, advance, balance, count, adv_valued) for project_id, total, advance, balance, count, adv_valued
+                 in db.execute(select(LaborContract.project_id, func.sum(LaborContract.total), func.sum(LaborContract.reported_advance),
+                                      func.sum(LaborContract.reported_balance), func.count(LaborContract.id), func.sum(valued))
+                               .where(LaborContract.project_id.in_(ids)).group_by(LaborContract.project_id)).all()}
     physical = _physical(db, ids)
+    latest_reports = {}
+    for report in db.scalars(select(FieldReport).where(FieldReport.project_id.in_(ids))
+                             .order_by(FieldReport.report_date.desc())).all():
+        latest_reports.setdefault(report.project_id, report)
+    flagged = dict(db.execute(select(Expense.project_id, func.count(Expense.id))
+                              .where(Expense.project_id.in_(ids), Expense.notes.is_not(None)).group_by(Expense.project_id)).all())
     rows = []
     for p in projects:
         progress = physical.get(p.id)
-        total, advance, balance, count = contracts.get(p.id, (ZERO, ZERO, ZERO, 0))
+        total, advance, balance, count, adv_valued = contracts.get(p.id, (ZERO, ZERO, ZERO, 0, ZERO))
         rows.append({
             "id": p.id, "name": p.name, "location": p.location, "municipality": p.municipality, "status": p.status,
             "responsible": p.responsible, "budget": None if p.budget is None else _money(p.budget),
@@ -79,7 +87,11 @@ def portfolio(subject: str = Depends(require_identity), db: Session = Depends(ge
             "expenses_total": _money(expenses.get(p.id)),
             "scheduled_total": _money(payments.get(p.id, {}).get("SCHEDULED")),
             "paid_total": _money(payments.get(p.id, {}).get("PAID")),
+            "latest_report": None if p.id not in latest_reports else {
+                "date": latest_reports[p.id].report_date.isoformat(), "summary": latest_reports[p.id].summary},
+            "flagged_expenses": flagged.get(p.id, 0),
             "contracts": {"count": count, "total": _money(total), "reported_advance": _money(advance),
+                          "advance_on_valued": _money(adv_valued),
                           "reported_balance": _money(balance)},
             "physical": None if not progress else {
                 "progress": float(round(progress["done"] / progress["weight"] * 100, 2)) if progress["weight"] else 0.0,
@@ -87,6 +99,9 @@ def portfolio(subject: str = Depends(require_identity), db: Session = Depends(ge
                 "services": progress["services"]},
         })
     keys = ("expenses_total", "scheduled_total", "paid_total")
+    for row in rows:
+        row["open_total"] = _money(Decimal(row["expenses_total"]) - Decimal(row["paid_total"]))
+    keys = keys + ("open_total",)
     totals = {key: _money(sum(Decimal(row[key]) for row in rows)) for key in keys}
     for key in ("total", "reported_advance", "reported_balance"):
         totals["contracts_" + key] = _money(sum(Decimal(row["contracts"][key]) for row in rows))
@@ -96,12 +111,23 @@ def portfolio(subject: str = Depends(require_identity), db: Session = Depends(ge
 
 
 @router.get("/schedule")
-def schedule(start: date = Query(...), end: date = Query(...), subject: str = Depends(require_identity),
+def schedule(start: date | None = Query(None), end: date | None = Query(None), subject: str = Depends(require_identity),
              db: Session = Depends(get_db)):
-    """Payments scheduled or paid in [start, end] across all authorized works (weekly FOPAG view)."""
+    """Payments scheduled or paid in [start, end] across all authorized works (weekly FOPAG view).
+
+    Without a period, returns the Monday-to-Sunday week of the latest scheduled payment."""
+    ids = [p.id for p in _authorized_projects(db, subject)]
+    if (start is None) != (end is None):
+        raise HTTPException(status_code=422, detail="Inform both start and end")
+    if start is None:
+        latest = db.scalar(select(func.max(Payment.scheduled_date)).join(Expense, Payment.expense_id == Expense.id)
+                           .where(Expense.project_id.in_(ids))) if ids else None
+        if latest is None:
+            return {"start": None, "end": None, "items": [], "latest": None}
+        start = latest - timedelta(days=latest.weekday())
+        end = start + timedelta(days=6)
     if end < start or (end - start) > timedelta(days=92):
         raise HTTPException(status_code=422, detail="Invalid period (max 92 days)")
-    ids = [p.id for p in _authorized_projects(db, subject)]
     if not ids:
         return {"start": start.isoformat(), "end": end.isoformat(), "items": [], "latest": None}
     rows = db.execute(select(Payment, Expense, Project).join(Expense, Payment.expense_id == Expense.id)
@@ -167,3 +193,41 @@ def update_project(project_id: str, payload: ProjectDetails, subject: str = Depe
                       action="project.update:" + ",".join(sorted(changes))[:80], resource_id=project.id))
     db.commit()
     return {"id": project.id, "updated": sorted(changes)}
+
+
+@router.get("/payables")
+def payables(subject: str = Depends(require_identity), db: Session = Depends(get_db)):
+    """Obligations with outstanding balance: amount owed, scheduled and paid (with evidence) per expense."""
+    ids = [p.id for p in _authorized_projects(db, subject)]
+    if not ids:
+        return []
+    paid = (select(Payment.expense_id, Payment.status, func.sum(Payment.amount).label("total"))
+            .group_by(Payment.expense_id, Payment.status).subquery())
+    sums: dict[str, dict] = {}
+    for expense_id, status, total in db.execute(select(paid.c.expense_id, paid.c.status, paid.c.total)).all():
+        sums.setdefault(expense_id, {})[status] = total
+    rows = db.execute(select(Expense, Project).join(Project, Expense.project_id == Project.id)
+                      .where(Project.id.in_(ids)).order_by(Expense.supplier)).all()
+    result = []
+    for expense, project in rows:
+        state = sums.get(expense.id, {})
+        paid_total = Decimal(str(state.get("PAID") or 0))
+        outstanding = expense.amount - paid_total
+        if outstanding <= 0:
+            continue
+        result.append({"expense_id": expense.id, "project_id": project.id, "project": project.name,
+                       "supplier": expense.supplier, "description": expense.description, "category": expense.category,
+                       "notes": expense.notes, "amount": _money(expense.amount),
+                       "scheduled": _money(state.get("SCHEDULED")), "paid": _money(paid_total),
+                       "outstanding": _money(outstanding)})
+    return sorted(result, key=lambda row: Decimal(row["outstanding"]), reverse=True)
+
+
+@router.get("/projects/{project_id}/details")
+def project_details(project_id: str, subject: str = Depends(require_identity), db: Session = Depends(get_db)):
+    p = access(db, subject, project_id, READ_ROLES)
+    plain = lambda value: None if value is None else str(value)  # noqa: E731
+    return {"id": p.id, "name": p.name, "location": p.location, "municipality": p.municipality, "address": p.address,
+            "status": p.status, "responsible": p.responsible, "cost_center": p.cost_center, "source": p.source,
+            "budget": plain(p.budget), "start_date": plain(p.start_date), "end_date": plain(p.end_date),
+            "latitude": plain(p.latitude), "longitude": plain(p.longitude)}

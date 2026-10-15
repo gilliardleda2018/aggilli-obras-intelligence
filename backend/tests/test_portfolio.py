@@ -78,6 +78,9 @@ def test_schedule_window_and_validation(env):
     assert len(week["items"]) == 16 and week["latest"] == "2026-08-28"
     assert client.get("/api/v1/schedule", params={"start": "2026-09-01", "end": "2026-09-07"}).json()["items"] == []
     assert client.get("/api/v1/schedule", params={"start": "2026-08-30", "end": "2026-08-01"}).status_code == 422
+    default = client.get("/api/v1/schedule").json()  # latest week with payments (Mon-Sun)
+    assert (default["start"], default["end"], len(default["items"])) == ("2026-08-24", "2026-08-30", 16)
+    assert client.get("/api/v1/schedule", params={"start": "2026-08-24"}).status_code == 422
     assert client.get("/api/v1/schedule", params={"start": "2026-01-01", "end": "2026-12-31"}).status_code == 422
 
 
@@ -102,3 +105,35 @@ def test_update_project_details_and_coordinates(env):
     assert ok.status_code == 200 and ok.json()["updated"] == ["address", "budget", "status"]
     row = next(p for p in client.get("/api/v1/portfolio").json()["projects"] if p["id"] == pid)
     assert row["status"] == "PAUSED" and row["budget"] == "120000.00"
+
+
+def test_payables_show_outstanding_debts(env):
+    client, *_ = env
+    rows = client.get("/api/v1/payables").json()
+    marcelo = next(row for row in rows if row["supplier"] == "Marcelo Construções")
+    assert (marcelo["amount"], marcelo["scheduled"], marcelo["paid"], marcelo["outstanding"]) ==         ("24670.00", "5000.00", "0.00", "24670.00")
+    portfolio = client.get("/api/v1/portfolio").json()
+    assert portfolio["totals"]["open_total"] == "56965.37"
+    tabocal = next(p for p in portfolio["projects"] if p["name"] == "MG Tabocal")
+    assert tabocal["latest_report"]["summary"].startswith("Relato do contratante")
+
+
+def test_advance_ratio_ignores_contracts_without_total(env):
+    client, *_ = env
+    casa = next(p for p in client.get("/api/v1/portfolio").json()["projects"] if p["name"] == "Casa BDC / Casa Barra")
+    c = casa["contracts"]
+    assert c["count"] == 4 and c["reported_advance"] == "33490.00" and c["advance_on_valued"] == "24490.00"
+    assert Decimal(c["advance_on_valued"]) <= Decimal(c["total"])
+
+
+def test_project_details_roundtrip(env):
+    client, engine, *_ = env
+    with Session(engine) as db:
+        pid = db.scalar(select(Project.id).where(Project.name == "MG Cipó"))
+    assert client.patch(f"/api/v1/projects/{pid}", json={"latitude": "-5.2591", "longitude": "-44.6489",
+                                                         "start_date": "2026-08-01", "end_date": "2026-07-01"}).status_code == 422
+    assert client.patch(f"/api/v1/projects/{pid}", json={"latitude": "-5.2591", "longitude": "-44.6489"}).status_code == 200
+    details = client.get(f"/api/v1/projects/{pid}/details").json()
+    assert (details["latitude"], details["longitude"], details["budget"]) == ("-5.259100", "-44.648900", None)
+    app.dependency_overrides[require_identity] = lambda: "intruso"
+    assert client.get(f"/api/v1/projects/{pid}/details").status_code == 404

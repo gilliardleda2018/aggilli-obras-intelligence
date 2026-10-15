@@ -1,37 +1,43 @@
-import {AlertTriangle, BadgeCheck, CalendarClock, ShieldAlert, Truck} from "lucide-react";
+import {AlertTriangle, BadgeCheck, CalendarClock, Scale, ShieldAlert} from "lucide-react";
 import {PageHead} from "../../../components/app-shell";
 import {Callout, Card, Kpi} from "../../../components/ui";
-import {payroll} from "../../../lib/tuntum-data";
-import {compactMoney, money, reconciliation, SOURCE, totals} from "../../../lib/portfolio";
+import {getDataset, summarize} from "../../../lib/data";
+import {compactMoney, money, reconciliation} from "../../../lib/portfolio";
 
-export default function Conciliacao() {
-  const t = totals();
-  const flagged = payroll.filter(item => item.notes);
+export const dynamic = "force-dynamic";
+
+export default async function Conciliacao() {
+  const data = await getDataset();
+  const t = summarize(data);
+  const flagged = data.schedule.filter(row => row.notes);
   return <>
-    <PageHead eyebrow={SOURCE.label} title="Conciliação"
+    {data.error && <div style={{marginBottom: 16}}><Callout icon={AlertTriangle}>{data.error}</Callout></div>}
+    <PageHead eyebrow={data.sourceLabel} title="Conciliação"
               subtitle="O que foi devido, o que foi programado e o que já tem comprovante — sem presumir quitação."/>
     <div className="kpis">
-      <Kpi label="Dívidas de fornecedores" value={money(t.supplierDebt)} note="relatadas · não conciliadas" icon={Truck} tone="warn"/>
-      <Kpi label="FOPAG da semana" value={money(t.weekly)} note="programada · não comprovada" icon={CalendarClock}/>
-      <Kpi label="Pagamentos confirmados" value="Não informado" note="aguardando comprovantes" icon={BadgeCheck} tone="ok"/>
-      <Kpi label="Saldo contratual na planilha" value={compactMoney(t.contractBalance)} note="não é o saldo financeiro global"
-           icon={ShieldAlert} tone="info"/>
+      <Kpi label="Obrigações em aberto" value={compactMoney(t.open)} note="sem pagamento comprovado" icon={Scale} tone="warn"/>
+      <Kpi label="Programado na semana" value={money(t.weekly)} note={data.weekLabel} icon={CalendarClock}/>
+      <Kpi label="Pagamentos comprovados" value={money(t.paid)} note={t.paid ? "com referência de comprovante" : "aguardando comprovantes"}
+           icon={BadgeCheck} tone="ok"/>
+      <Kpi label="Itens com observação" value={String(flagged.length)} note="conferir antes de pagar" icon={ShieldAlert} tone="info"/>
     </div>
     <div className="grid-2">
-      <Card flush title="Divergências entre relato e folha" subtitle="Resolver antes de pagar ou de importar para o sistema">
-        {reconciliation.map(item => <div key={item.title} className="list-item">
-          <span className="dot-icon tone-warn"><AlertTriangle/></span><div><b>{item.title}</b><small>{item.detail}</small></div>
+      <Card flush title="Lançamentos com observação" subtitle="Resolver antes de pagar">
+        {flagged.map(row => <div key={row.key} className="list-item">
+          <span className="dot-icon tone-warn"><AlertTriangle/></span>
+          <div><b>{row.supplier} · {row.project}</b><small>{row.notes}</small></div>
+          <span className="amount">{money(row.amount)}</span>
         </div>)}
+        {!flagged.length && <p className="empty">Nenhuma observação pendente.</p>}
       </Card>
       <div className="stack">
-        <Card flush title="Lançamentos da FOPAG com observação" subtitle={flagged.length + " itens"}>
-          {flagged.map(item => <div key={item.name} className="list-item">
-            <div><b>{item.name} · {item.project}</b><small>{item.notes}</small></div>
-            <span className="amount">{money(item.amount)}</span>
+        {data.source === "reference" && <Card flush title="Divergências entre relato e folha" subtitle="Registradas na importação de referência">
+          {reconciliation.map(item => <div key={item.title} className="list-item">
+            <span className="dot-icon tone-warn"><AlertTriangle/></span><div><b>{item.title}</b><small>{item.detail}</small></div>
           </div>)}
-        </Card>
-        <Callout tone="info" icon={BadgeCheck}>Fluxo previsto no sistema: <b>solicitação → aprovação → programação → pagamento com
-          comprovante → baixa do saldo</b>, com rateio entre obras aprovado e trilha de auditoria.</Callout>
+        </Card>}
+        <Callout tone="info" icon={BadgeCheck}>Fluxo do sistema: <b>despesa registrada → pagamento programado → pagamento confirmado
+          com comprovante → baixa do saldo</b>, com rateio entre obras aprovado e trilha de auditoria.</Callout>
       </div>
     </div>
   </>;

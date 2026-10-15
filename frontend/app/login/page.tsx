@@ -1,6 +1,8 @@
 import {BarChart3, Building2, MapPinned, ShieldCheck} from "lucide-react";
 import {LoginFlow} from "./login-flow";
 
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
   const projectId = process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID;
   return <main className="auth">
@@ -22,6 +24,7 @@ export default function LoginPage() {
       <div className="auth-box">
         <h1>Entrar</h1>
         <p>Use sua identidade corporativa. O acesso às obras depende da autorização da sua empresa.</p>
+        {process.env.ALLOW_DEV_LOGIN === "1" && <a className="btn primary" href="/api/auth/dev">Entrar como usuário de desenvolvimento</a>}
         {projectId ? <LoginFlow projectId={projectId}/>
           : <div className="callout"><span>Login indisponível: projeto de identidade não configurado neste ambiente.</span></div>}
       </div>

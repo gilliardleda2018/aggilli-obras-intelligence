@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { randomBytes, createCipheriv } from "node:crypto";
+import { sealSession } from "../../../../lib/session";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -30,10 +30,7 @@ export async function GET(request: Request) {
     return NextResponse.json({error:"Unsupported token type"},{status:401});
   if(typeof data.access_token!=="string"||!data.access_token)
     return NextResponse.json({error:"Invalid token response"},{status:401});
-  const iv=randomBytes(12);
-  const cipher=createCipheriv("aes-256-gcm",Buffer.from(key,"hex"),iv);
-  const encrypted=Buffer.concat([cipher.update(data.access_token,"utf8"),cipher.final()]);
-  const value=Buffer.concat([iv,cipher.getAuthTag(),encrypted]).toString("base64url");
+  const value=sealSession(data.access_token,key);
   store.set("obras_session",value,{httpOnly:true,secure:process.env.NODE_ENV==="production",
     sameSite:"lax",path:"/",maxAge:Math.min(Math.max(Number(data.expires_in)||300,1),3600)});
   return NextResponse.redirect(new URL("/obras",request.url));

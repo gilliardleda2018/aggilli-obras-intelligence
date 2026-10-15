@@ -11,3 +11,4 @@ frontend/tsconfig.tsbuildinfo
 
 backend/.dev/
 *.db
+.local/

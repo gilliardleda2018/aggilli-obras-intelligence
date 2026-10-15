@@ -16,7 +16,7 @@ const NAV: {group: string; items: Item[]}[] = [
   ]},
   {group: "Financeiro", items: [
     {href: "/fopag", label: "FOPAG semanal", icon: CalendarClock},
-    {href: "/financeiro", label: "Contratos e fornecedores", icon: Wallet},
+    {href: "/financeiro", label: "Contratos e obrigações", icon: Wallet},
     {href: "/conciliacao", label: "Conciliação", icon: Scale},
   ]},
   {group: "Campo", items: [
@@ -32,7 +32,7 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 }
 
-export function AppShell({children}: {children: ReactNode}) {
+export function AppShell({children, source}: {children: ReactNode; source: "api" | "reference"}) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -52,7 +52,7 @@ export function AppShell({children}: {children: ReactNode}) {
             <Icon/>{item.label}</Link>;
         })}
       </div>)}
-      <div className="sidebar-foot"><b>Tuntum · Maranhão</b>{SOURCE.label} · {SOURCE.detail}</div>
+      <div className="sidebar-foot"><b>Tuntum · Maranhão</b>{source === "api" ? "Dados do banco, com acesso por empresa e função" : SOURCE.label + " · " + SOURCE.detail}</div>
     </aside>
     <div className="main">
       <header className="topbar">
@@ -66,8 +66,12 @@ export function AppShell({children}: {children: ReactNode}) {
           <kbd>Enter</kbd>
         </form>
         <span className="spacer"/>
-        <span className="source-pill" title={SOURCE.detail}><i/><span>Dados importados · não conciliados</span></span>
-        <span className="avatar" aria-label="Usuário">AG</span>
+        {source === "api"
+          ? <span className="source-pill live"><i/><span>Banco de dados</span></span>
+          : <span className="source-pill" title={SOURCE.detail}><i/><span>Importação de referência</span></span>}
+        {source === "api"
+          ? <a className="btn" href="/api/auth/logout" title="Sair">Sair</a>
+          : <a className="btn primary" href="/login">Entrar</a>}
       </header>
       <main className="content">{children}</main>
     </div>
