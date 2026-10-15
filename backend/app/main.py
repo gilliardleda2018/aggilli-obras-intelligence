@@ -77,3 +77,6 @@ app.include_router(imports_router)
 
 from .alerts import router as alerts_router
 app.include_router(alerts_router)
+
+from .report_export import router as report_export_router
+app.include_router(report_export_router)

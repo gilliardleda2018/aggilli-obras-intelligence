@@ -86,15 +86,27 @@ class Material(Base):
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     unit: Mapped[str] = mapped_column(String(30), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    min_stock: Mapped[Decimal | None] = mapped_column(Numeric(16,3), nullable=True)
+    # Planned consumption for the whole work (quantitative); compared with consumption × measured progress.
+    planned_quantity: Mapped[Decimal | None] = mapped_column(Numeric(16,3), nullable=True)
+    service_id: Mapped[str | None] = mapped_column(ForeignKey("service_items.id", name="fk_materials_service"), nullable=True)
 
 class StockMovement(Base):
     __tablename__ = "stock_movements"
+    __table_args__ = (CheckConstraint("kind IN ('IN','OUT')", name="ck_stock_movements_kind"),
+                      CheckConstraint("quantity > 0", name="ck_stock_movements_quantity"))
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), nullable=False, index=True)
     kind: Mapped[str] = mapped_column(String(3), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    movement_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(16,4), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    expense_id: Mapped[str | None] = mapped_column(ForeignKey("expenses.id", name="fk_stock_movements_expense"), nullable=True)
 
 class CostEntry(Base):
     __tablename__ = "cost_entries"
