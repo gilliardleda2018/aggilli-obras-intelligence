@@ -1,0 +1,62 @@
+name: Deploy
+# Publica na AWS depois que o CI passa na main (ou manualmente). Sem chave guardada: o GitHub assume o papel
+# obras-github-deploy via OIDC. Configurar no repositório:
+#   secret   AWS_DEPLOY_ROLE_ARN            (saída DeployRoleArn da pilha)
+#   variable AWS_REGION                     (ex.: us-east-1)
+#   variable MIGRATION_SUBNETS              (ex.: subnet-aaa,subnet-bbb — saída MigrationNetwork, antes do "|")
+#   variable MIGRATION_SECURITY_GROUP       (saída MigrationNetwork, depois do "|")
+#   variable NEXT_PUBLIC_DESCOPE_PROJECT_ID
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: {group: deploy-production, cancel-in-progress: false}
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions: {id-token: write, contents: read}
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ env.SHA }}"}
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ secrets.AWS_DEPLOY_ROLE_ARN }}", aws-region: "${{ env.AWS_REGION }}"}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Imagem da API
+        run: |
+          docker build -t "$REGISTRY/obras-api:$SHA" -t "$REGISTRY/obras-api:latest" backend
+          docker push --all-tags "$REGISTRY/obras-api"
+        env: {REGISTRY: "${{ steps.ecr.outputs.registry }}"}
+      - name: Imagem do site
+        run: |
+          docker build --build-arg NEXT_PUBLIC_DESCOPE_PROJECT_ID="$DESCOPE" -t "$REGISTRY/obras-web:$SHA" -t "$REGISTRY/obras-web:latest" frontend
+          docker push --all-tags "$REGISTRY/obras-web"
+        env: {REGISTRY: "${{ steps.ecr.outputs.registry }}", DESCOPE: "${{ vars.NEXT_PUBLIC_DESCOPE_PROJECT_ID }}"}
+
+      - name: Migração do banco (alembic upgrade head)
+        run: |
+          set -euo pipefail
+          TASK=$(aws ecs run-task --cluster obras --task-definition obras-api --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ vars.MIGRATION_SUBNETS }}],securityGroups=[${{ vars.MIGRATION_SECURITY_GROUP }}],assignPublicIp=ENABLED}" \
+            --overrides '{"containerOverrides":[{"name":"api","command":["alembic","upgrade","head"]}]}' \
+            --query 'tasks[0].taskArn' --output text)
+          aws ecs wait tasks-stopped --cluster obras --tasks "$TASK"
+          CODE=$(aws ecs describe-tasks --cluster obras --tasks "$TASK" --query 'tasks[0].containers[0].exitCode' --output text)
+          echo "migração terminou com código $CODE"
+          test "$CODE" = "0"
+
+      - name: Atualizar serviços
+        run: |
+          aws ecs update-service --cluster obras --service obras-api --force-new-deployment > /dev/null
+          aws ecs update-service --cluster obras --service obras-web --force-new-deployment > /dev/null
+          aws ecs wait services-stable --cluster obras --services obras-api obras-web

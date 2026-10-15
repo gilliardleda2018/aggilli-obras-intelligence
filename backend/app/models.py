@@ -1,0 +1,292 @@
+import uuid
+from datetime import datetime, date, timezone
+from decimal import Decimal
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column
+from .db import Base
+
+def uid(): return str(uuid.uuid4())
+def now(): return datetime.now(timezone.utc)
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class Membership(Base):
+    __tablename__ = "memberships"
+    __table_args__ = (UniqueConstraint("organization_id", "subject_id"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    subject_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str] = mapped_column(String(30), nullable=False)
+
+PROJECT_STATUSES = ("PLANNED", "IN_PROGRESS", "PAUSED", "DONE", "COST_POOL")
+
+
+class Project(Base):
+    __tablename__ = "projects"
+    __table_args__ = (CheckConstraint("status IN ('PLANNED','IN_PROGRESS','PAUSED','DONE','COST_POOL')",
+                                      name="ck_projects_status"),
+                      CheckConstraint("location_source IN ('GEOCODED','MAP','FIELD','MANUAL')", name="ck_projects_location_source"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    location: Mapped[str] = mapped_column(String(300), nullable=False)
+    # Budget and dates are optional: imported works may not have them yet and they are never invented.
+    budget: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    municipality: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # COST_POOL groups shared expenses that still need to be apportioned between works.
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="IN_PROGRESS", server_default="IN_PROGRESS")
+    responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    cost_center: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    # Provenance of the coordinates. GEOCODED values come from Google and may only be cached for 30 days (refreshed by
+    # place ID); MAP (pin placed by a person), FIELD (device GPS on site) and MANUAL are the organization's own data.
+    location_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    location_accuracy: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    location_place_id: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    location_confirmed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+class ServiceItem(Base):
+    __tablename__ = "service_items"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    unit: Mapped[str] = mapped_column(String(30), nullable=False)
+    planned_quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
+    weight: Mapped[Decimal] = mapped_column(Numeric(7,4), nullable=False)
+
+class Measurement(Base):
+    __tablename__ = "measurements"
+    __table_args__ = (CheckConstraint("status IN ('PENDING','APPROVED','REJECTED')", name="ck_measurements_status"),
+                      CheckConstraint("quantity > 0", name="ck_measurements_quantity"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    service_item_id: Mapped[str] = mapped_column(ForeignKey("service_items.id"), nullable=False, index=True)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    measured_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    subject_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    action: Mapped[str] = mapped_column(String(100), nullable=False)
+    resource_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class Material(Base):
+    __tablename__ = "materials"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    unit: Mapped[str] = mapped_column(String(30), nullable=False)
+    category: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    min_stock: Mapped[Decimal | None] = mapped_column(Numeric(16,3), nullable=True)
+    # Planned consumption for the whole work (quantitative); compared with consumption × measured progress.
+    planned_quantity: Mapped[Decimal | None] = mapped_column(Numeric(16,3), nullable=True)
+    service_id: Mapped[str | None] = mapped_column(ForeignKey("service_items.id", name="fk_materials_service"), nullable=True)
+
+class StockMovement(Base):
+    __tablename__ = "stock_movements"
+    __table_args__ = (CheckConstraint("kind IN ('IN','OUT')", name="ck_stock_movements_kind"),
+                      CheckConstraint("quantity > 0", name="ck_stock_movements_quantity"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    material_id: Mapped[str] = mapped_column(ForeignKey("materials.id"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(3), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(16,3), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    movement_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(16,4), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    note: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    expense_id: Mapped[str | None] = mapped_column(ForeignKey("expenses.id", name="fk_stock_movements_expense"), nullable=True)
+
+class CostEntry(Base):
+    __tablename__ = "cost_entries"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(300), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(16,2), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class FieldReport(Base):
+    __tablename__ = "field_reports"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    report_date: Mapped[date] = mapped_column(Date, nullable=False)
+    weather: Mapped[str] = mapped_column(String(100), nullable=False)
+    summary: Mapped[str] = mapped_column(String(5000), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class FieldPhoto(Base):
+    """Site photo for the work diary. The original file is kept untouched (sha256 = integrity evidence).
+    Location comes from the photo's own GPS metadata (EXIF) or from the phone at upload time (DEVICE) — never guessed."""
+    __tablename__ = "field_photos"
+    __table_args__ = (UniqueConstraint("project_id", "sha256", name="uq_field_photos_file"),
+                      CheckConstraint("location_source IN ('EXIF','DEVICE')", name="ck_field_photos_location_source"),
+                      CheckConstraint("taken_at_source IN ('EXIF','DEVICE')", name="ck_field_photos_taken_at_source"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    report_id: Mapped[str | None] = mapped_column(ForeignKey("field_reports.id", name="fk_field_photos_report"), nullable=True, index=True)
+    service_id: Mapped[str | None] = mapped_column(ForeignKey("service_items.id", name="fk_field_photos_service"), nullable=True, index=True)
+    caption: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    taken_at_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    accuracy_m: Mapped[Decimal | None] = mapped_column(Numeric(8,1), nullable=True)
+    location_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    distance_m: Mapped[int | None] = mapped_column(Integer, nullable=True)  # to the project location when the photo was sent
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class FieldDocument(Base):
+    """Receipt, invoice, quote or payment proof photographed in the field. Stays PENDING until a person checks the values
+    read from it (OCR is only a suggestion) and confirms which work it belongs to; confirming creates the expense."""
+    __tablename__ = "field_documents"
+    __table_args__ = (UniqueConstraint("organization_id", "sha256", name="uq_field_documents_file"),
+                      CheckConstraint("status IN ('PENDING','CONFIRMED','DISCARDED')", name="ck_field_documents_status"),
+                      CheckConstraint("location_source IN ('EXIF','DEVICE')", name="ck_field_documents_location_source"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
+    project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", name="fk_field_documents_project"), nullable=True, index=True)
+    suggested_project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id", name="fk_field_documents_suggested"), nullable=True)
+    suggestion_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")
+    kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    accuracy_m: Mapped[Decimal | None] = mapped_column(Numeric(8,1), nullable=True)
+    location_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    access_key: Mapped[str | None] = mapped_column(String(44), nullable=True, index=True)
+    extraction: Mapped[str | None] = mapped_column(String, nullable=True)  # JSON as read (fields, problems, key)
+    extraction_engine: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    extraction_error: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    expense_id: Mapped[str | None] = mapped_column(ForeignKey("expenses.id", name="fk_field_documents_expense"), nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    confirmed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class Inspection(Base):
+    __tablename__ = "inspections"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(String(2000), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class LaborContract(Base):
+    """Labor contract (empreitada). Advance/balance are kept exactly as reported by the source document."""
+    __tablename__ = "labor_contracts"
+    __table_args__ = (UniqueConstraint("project_id", "source_ref", name="uq_labor_contracts_source"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    contractor: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    total: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)  # not always in the source
+    reported_advance: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    reported_balance: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
+class Expense(Base):
+    __tablename__="expenses"
+    __table_args__=(UniqueConstraint("project_id","source_ref",name="uq_expenses_source"),)
+    id:Mapped[str]=mapped_column(String(36),primary_key=True,default=uid)
+    project_id:Mapped[str]=mapped_column(ForeignKey("projects.id"),nullable=False,index=True)
+    description:Mapped[str]=mapped_column(String(300),nullable=False)
+    supplier:Mapped[str]=mapped_column(String(200),nullable=False)
+    amount:Mapped[Decimal]=mapped_column(Numeric(16,2),nullable=False)
+    category:Mapped[str]=mapped_column(String(20),nullable=False)
+    evidence_key:Mapped[str|None]=mapped_column(String(500),nullable=True)
+    status:Mapped[str]=mapped_column(String(20),nullable=False,default="OPEN")
+    created_by:Mapped[str]=mapped_column(String(200),nullable=False)
+    expense_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+    notes:Mapped[str|None]=mapped_column(String(500),nullable=True)
+    contract_id:Mapped[str|None]=mapped_column(ForeignKey("labor_contracts.id",name="fk_expenses_contract"),nullable=True)
+    source_ref:Mapped[str|None]=mapped_column(String(120),nullable=True)
+
+class Payment(Base):
+    __tablename__="payments"
+    id:Mapped[str]=mapped_column(String(36),primary_key=True,default=uid)
+    expense_id:Mapped[str]=mapped_column(ForeignKey("expenses.id"),nullable=False,index=True)
+    amount:Mapped[Decimal]=mapped_column(Numeric(16,2),nullable=False)
+    scheduled_date:Mapped[date]=mapped_column(Date,nullable=False)
+    status:Mapped[str]=mapped_column(String(20),nullable=False,default="SCHEDULED")
+    reference:Mapped[str|None]=mapped_column(String(200),nullable=True)
+    created_by:Mapped[str]=mapped_column(String(200),nullable=False)
+    confirmed_by:Mapped[str|None]=mapped_column(String(200),nullable=True)
+
+class ForecastRun(Base):
+    """One forecast calculation; a new row only when the inputs (hash) or the model version change."""
+    __tablename__ = "forecast_runs"
+    __table_args__ = (UniqueConstraint("project_id", "kind", "model", "version", "input_hash", name="uq_forecast_runs_inputs"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    version: Mapped[str] = mapped_column(String(20), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    result: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class ImportBatch(Base):
+    """Uploaded spreadsheet: parsed rows stay here as a preview until the user confirms the import."""
+    __tablename__ = "import_batches"
+    __table_args__ = (CheckConstraint("status IN ('PREVIEW','COMMITTED','DISCARDED')", name="ck_import_batches_status"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PREVIEW")
+    rows: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class AlertReview(Base):
+    """Decision of a person about an automatic alert; the alert itself is recomputed from the data."""
+    __tablename__ = "alert_reviews"
+    __table_args__ = (UniqueConstraint("organization_id", "alert_key", name="uq_alert_reviews_key"),
+                      CheckConstraint("decision IN ('CONFIRMED','FALSE_ALARM','RESOLVED')", name="ck_alert_reviews_decision"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    alert_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reviewed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)

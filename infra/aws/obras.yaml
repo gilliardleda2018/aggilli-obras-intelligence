@@ -1,0 +1,508 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Aggilli Obras Intelligence — produção. Site (Next.js) atrás de um ALB com HTTPS; API (FastAPI) só na rede interna
+  (ECS Service Connect); PostgreSQL no RDS com senha gerenciada pelo próprio RDS; arquivos num bucket S3 privado.
+  Sem NAT Gateway: tarefas em sub-redes públicas, acessíveis somente pelo security group do load balancer.
+  Criar com DesiredCount=0, publicar as imagens (GitHub Actions) e então subir DesiredCount=1. Ver docs/DEPLOY-AWS.md.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: emobras.aggillintelligence.com.br
+  CertificateArn:
+    Type: String
+    Description: Certificado ACM do domínio, na mesma região da pilha.
+  DesiredCount:
+    Type: Number
+    Default: 0
+    AllowedValues: [0, 1, 2]
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  ImageTag:
+    Type: String
+    Default: latest
+  GithubRepository:
+    Type: String
+    Default: gilliardleda2018/aggilli-obras-intelligence
+  CreateGithubOidcProvider:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: false se a conta já tiver o provedor token.actions.githubusercontent.com.
+  AlertEmail:
+    Type: String
+    Default: ""
+    Description: E-mail para alerta de orçamento (vazio = sem alerta).
+  MonthlyBudgetUsd:
+    Type: Number
+    Default: 150
+  OidcIssuer:
+    Type: String
+    Default: ""
+  OidcClientId:
+    Type: String
+    Default: ""
+  OidcAudience:
+    Type: String
+    Default: aggilli-obras-api
+  OidcJwksUrl:
+    Type: String
+    Default: ""
+  GoogleMapsMapId:
+    Type: String
+    Default: ""
+  DocAiProvider:
+    Type: String
+    Default: "off"
+    AllowedValues: ["off", "aws", "bedrock"]
+  AnthropicAwsWorkspaceId:
+    Type: String
+    Default: ""
+
+Conditions:
+  MakeOidcProvider: !Equals [!Ref CreateGithubOidcProvider, "true"]
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, ""]]
+
+Resources:
+  # ---------- Rede ----------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags: [{Key: Name, Value: obras}]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: {VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway}
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.0.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: obras-public-a}]
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags: [{Key: Name, Value: obras-public-b}]
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.10.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags: [{Key: Name, Value: obras-db-a}]
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.20.11.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags: [{Key: Name, Value: obras-db-b}]
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: {VpcId: !Ref Vpc}
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: {RouteTableId: !Ref PublicRouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway}
+  PublicSubnetARoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRouteTable}
+  PublicSubnetBRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRouteTable}
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Load balancer publico (HTTP/HTTPS)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0}
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Site - so recebe do load balancer
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 3000, ToPort: 3000, SourceSecurityGroupId: !Ref AlbSecurityGroup}
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: API - so recebe do site
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, SourceSecurityGroupId: !Ref WebSecurityGroup}
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Banco - so recebe da API
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref ApiSecurityGroup}
+
+  # ---------- Dados ----------
+  FilesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub obras-arquivos-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}}]
+      PublicAccessBlockConfiguration: {BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true}
+      OwnershipControls: {Rules: [{ObjectOwnership: BucketOwnerEnforced}]}
+      VersioningConfiguration: {Status: Enabled}
+      LifecycleConfiguration:
+        Rules:
+          - {Id: versoes-antigas, Status: Enabled, NoncurrentVersionExpiration: {NoncurrentDays: 90}}
+  FilesBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FilesBucket
+      PolicyDocument:
+        Statement:
+          - Sid: SomenteHttps
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt FilesBucket.Arn, !Sub "${FilesBucket.Arn}/*"]
+            Condition: {Bool: {"aws:SecureTransport": "false"}}
+
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Banco nas sub-redes privadas
+      SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      EngineVersion: "17.11"
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: "20"
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      DBName: obras
+      MasterUsername: obras
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      DeletionProtection: true
+      AutoMinorVersionUpgrade: true
+      CopyTagsToSnapshot: true
+
+  # Gerado dentro da AWS (ninguém vê): chave de sessão em 64 caracteres hexadecimais. Os demais campos são
+  # preenchidos pelo dono no console do Secrets Manager (substituir "PREENCHER").
+  AppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: obras/app
+      Description: Segredos do site e da API (preencher OIDC_CLIENT_SECRET e GOOGLE_MAPS_* no console)
+      GenerateSecretString:
+        SecretStringTemplate: '{"OIDC_CLIENT_SECRET":"PREENCHER","GOOGLE_MAPS_SERVER_KEY":"PREENCHER","GOOGLE_MAPS_BROWSER_KEY":"PREENCHER"}'
+        GenerateStringKey: SESSION_ENCRYPTION_KEY
+        PasswordLength: 64
+        ExcludeUppercase: true
+        ExcludePunctuation: true
+        ExcludeCharacters: ghijklmnopqrstuvwxyz
+        RequireEachIncludedType: false
+
+  # ---------- Imagens e logs ----------
+  ApiRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: obras-api
+      ImageScanningConfiguration: {ScanOnPush: true}
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"manter 15","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":15},"action":{"type":"expire"}}]}'
+  WebRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: obras-web
+      ImageScanningConfiguration: {ScanOnPush: true}
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"manter 15","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":15},"action":{"type":"expire"}}]}'
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: /obras/api, RetentionInDays: 30}
+  WebLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: {LogGroupName: /obras/web, RetentionInDays: 30}
+
+  # ---------- Permissões ----------
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{Effect: Allow, Principal: {Service: ecs-tasks.amazonaws.com}, Action: sts:AssumeRole}]
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy]
+      Policies:
+        - PolicyName: ler-segredos
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref AppSecret, !GetAtt Database.MasterUserSecret.SecretArn]
+  ApiTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{Effect: Allow, Principal: {Service: ecs-tasks.amazonaws.com}, Action: sts:AssumeRole}]
+      Policies:
+        - PolicyName: arquivos-e-leitura
+          PolicyDocument:
+            Statement:
+              - {Effect: Allow, Action: [s3:GetObject, s3:PutObject, s3:DeleteObject], Resource: !Sub "${FilesBucket.Arn}/*"}
+              - {Effect: Allow, Action: s3:ListBucket, Resource: !GetAtt FilesBucket.Arn}
+              # Claude Platform on AWS (leitura de notas). Conferir o nome exato das ações na documentação ao ativar.
+              - {Effect: Allow, Action: "aws-external-anthropic:*", Resource: "*"}
+  WebTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement: [{Effect: Allow, Principal: {Service: ecs-tasks.amazonaws.com}, Action: sts:AssumeRole}]
+
+  # ---------- ECS ----------
+  Namespace:
+    Type: AWS::ServiceDiscovery::HttpNamespace
+    Properties: {Name: obras.internal}
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: obras
+      ClusterSettings: [{Name: containerInsights, Value: disabled}]
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: obras-api
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApiTaskRole.Arn
+      ContainerDefinitions:
+        - Name: api
+          Image: !Sub "${ApiRepository.RepositoryUri}:${ImageTag}"
+          Essential: true
+          PortMappings: [{Name: api, ContainerPort: 8000, Protocol: tcp, AppProtocol: http}]
+          Environment:
+            - {Name: APP_ENV, Value: production}
+            - {Name: AWS_REGION, Value: !Ref AWS::Region}
+            - {Name: DB_HOST, Value: !GetAtt Database.Endpoint.Address}
+            - {Name: DB_NAME, Value: obras}
+            - {Name: FILE_STORAGE_BUCKET, Value: !Ref FilesBucket}
+            - {Name: OIDC_ISSUER, Value: !Ref OidcIssuer}
+            - {Name: OIDC_AUDIENCE, Value: !Ref OidcAudience}
+            - {Name: OIDC_JWKS_URL, Value: !Ref OidcJwksUrl}
+            - {Name: DOC_AI_PROVIDER, Value: !Ref DocAiProvider}
+            - {Name: ANTHROPIC_AWS_WORKSPACE_ID, Value: !Ref AnthropicAwsWorkspaceId}
+          Secrets:
+            - {Name: DB_USER, ValueFrom: !Sub "${Database.MasterUserSecret.SecretArn}:username::"}
+            - {Name: DB_PASSWORD, ValueFrom: !Sub "${Database.MasterUserSecret.SecretArn}:password::"}
+            - {Name: GOOGLE_MAPS_SERVER_KEY, ValueFrom: !Sub "${AppSecret}:GOOGLE_MAPS_SERVER_KEY::"}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: {awslogs-group: !Ref ApiLogs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: api}
+
+  WebTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: obras-web
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: "512"
+      Memory: "1024"
+      RuntimePlatform: {CpuArchitecture: X86_64, OperatingSystemFamily: LINUX}
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt WebTaskRole.Arn
+      ContainerDefinitions:
+        - Name: web
+          Image: !Sub "${WebRepository.RepositoryUri}:${ImageTag}"
+          Essential: true
+          PortMappings: [{Name: web, ContainerPort: 3000, Protocol: tcp, AppProtocol: http}]
+          Environment:
+            - {Name: API_BASE_URL, Value: "http://api:8000"}
+            - {Name: OIDC_ISSUER, Value: !Ref OidcIssuer}
+            - {Name: OIDC_CLIENT_ID, Value: !Ref OidcClientId}
+            - {Name: OIDC_REDIRECT_URI, Value: !Sub "https://${DomainName}/api/auth/callback"}
+            - {Name: GOOGLE_MAPS_MAP_ID, Value: !Ref GoogleMapsMapId}
+          Secrets:
+            - {Name: SESSION_ENCRYPTION_KEY, ValueFrom: !Sub "${AppSecret}:SESSION_ENCRYPTION_KEY::"}
+            - {Name: OIDC_CLIENT_SECRET, ValueFrom: !Sub "${AppSecret}:OIDC_CLIENT_SECRET::"}
+            - {Name: GOOGLE_MAPS_BROWSER_KEY, ValueFrom: !Sub "${AppSecret}:GOOGLE_MAPS_BROWSER_KEY::"}
+          LogConfiguration:
+            LogDriver: awslogs
+            Options: {awslogs-group: !Ref WebLogs, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: web}
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: obras
+      Scheme: internet-facing
+      Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      LoadBalancerAttributes:
+        - {Key: routing.http.drop_invalid_header_fields.enabled, Value: "true"}
+        - {Key: idle_timeout.timeout_seconds, Value: "120"}  # leitura de nota pode levar alguns segundos
+  WebTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref Vpc
+      TargetType: ip
+      Protocol: HTTP
+      Port: 3000
+      HealthCheckPath: /login
+      Matcher: {HttpCode: "200"}
+      TargetGroupAttributes: [{Key: deregistration_delay.timeout_seconds, Value: "20"}]
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates: [{CertificateArn: !Ref CertificateArn}]
+      DefaultActions: [{Type: forward, TargetGroupArn: !Ref WebTargetGroup}]
+  HttpListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig: {Protocol: HTTPS, Port: "443", StatusCode: HTTP_301}
+
+  ApiService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: obras-api
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      TaskDefinition: !Ref ApiTaskDefinition
+      DesiredCount: !Ref DesiredCount
+      DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 100, MaximumPercent: 200}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED  # baixar imagens sem NAT; o security group bloqueia qualquer entrada externa
+          Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+          SecurityGroups: [!Ref ApiSecurityGroup]
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !GetAtt Namespace.Arn
+        Services: [{PortName: api, ClientAliases: [{Port: 8000, DnsName: api}]}]
+  WebService:
+    Type: AWS::ECS::Service
+    DependsOn: HttpsListener
+    Properties:
+      ServiceName: obras-web
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      TaskDefinition: !Ref WebTaskDefinition
+      DesiredCount: !Ref DesiredCount
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration: {DeploymentCircuitBreaker: {Enable: true, Rollback: true}, MinimumHealthyPercent: 100, MaximumPercent: 200}
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+          SecurityGroups: [!Ref WebSecurityGroup]
+      LoadBalancers: [{ContainerName: web, ContainerPort: 3000, TargetGroupArn: !Ref WebTargetGroup}]
+      ServiceConnectConfiguration:
+        Enabled: true
+        Namespace: !GetAtt Namespace.Arn
+
+  # ---------- Publicação pelo GitHub Actions (sem chave guardada) ----------
+  GithubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeOidcProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: obras-github-deploy
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: {Federated: !Sub "arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com"}
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              # Só o job no ambiente "production" do GitHub (restrito à branch main nas regras do ambiente).
+              StringEquals: {"token.actions.githubusercontent.com:aud": sts.amazonaws.com,
+                             "token.actions.githubusercontent.com:sub": !Sub "repo:${GithubRepository}:environment:production"}
+      Policies:
+        - PolicyName: publicar
+          PolicyDocument:
+            Statement:
+              - {Effect: Allow, Action: ecr:GetAuthorizationToken, Resource: "*"}
+              - Effect: Allow
+                Action: [ecr:BatchCheckLayerAvailability, ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload,
+                         ecr:PutImage, ecr:BatchGetImage, ecr:GetDownloadUrlForLayer]
+                Resource: [!GetAtt ApiRepository.Arn, !GetAtt WebRepository.Arn]
+              - Effect: Allow
+                Action: [ecs:UpdateService, ecs:DescribeServices]
+                Resource: [!Ref ApiService, !Ref WebService]
+              - {Effect: Allow, Action: [ecs:RunTask], Resource: !Sub "arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:task-definition/obras-api:*"}
+              - {Effect: Allow, Action: [ecs:DescribeTasks], Resource: "*"}
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: [!GetAtt ExecutionRole.Arn, !GetAtt ApiTaskRole.Arn]
+
+  # ---------- Custo ----------
+  Budget:
+    Type: AWS::Budgets::Budget
+    Condition: HasAlertEmail
+    Properties:
+      Budget:
+        BudgetName: obras-mensal
+        BudgetType: COST
+        TimeUnit: MONTHLY
+        BudgetLimit: {Amount: !Ref MonthlyBudgetUsd, Unit: USD}
+      NotificationsWithSubscribers:
+        - Notification: {NotificationType: ACTUAL, ComparisonOperator: GREATER_THAN, Threshold: 80, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+        - Notification: {NotificationType: FORECASTED, ComparisonOperator: GREATER_THAN, Threshold: 100, ThresholdType: PERCENTAGE}
+          Subscribers: [{SubscriptionType: EMAIL, Address: !Ref AlertEmail}]
+
+Outputs:
+  LoadBalancerDns:
+    Description: Criar CNAME de emobras para este endereço no provedor do domínio
+    Value: !GetAtt LoadBalancer.DNSName
+  ApiRepositoryUri:
+    Value: !GetAtt ApiRepository.RepositoryUri
+  WebRepositoryUri:
+    Value: !GetAtt WebRepository.RepositoryUri
+  DeployRoleArn:
+    Description: Secret AWS_DEPLOY_ROLE_ARN no GitHub
+    Value: !GetAtt DeployRole.Arn
+  FilesBucketName:
+    Value: !Ref FilesBucket
+  ApiTaskDefinitionArn:
+    Value: !Ref ApiTaskDefinition
+  MigrationNetwork:
+    Description: Sub-redes e security group para rodar a migração (alembic) como tarefa avulsa
+    Value: !Sub "${PublicSubnetA},${PublicSubnetB}|${ApiSecurityGroup}"
+  AppSecretArn:
+    Value: !Ref AppSecret

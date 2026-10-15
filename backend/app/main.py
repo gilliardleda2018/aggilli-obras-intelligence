@@ -43,3 +43,49 @@ def health():
 @app.get("/api/v1/demo/project")
 def demo_project():
     return {**DEMO.model_dump(mode="json"), "physical_progress": physical_progress(DEMO.stages)}
+
+from .projects import router as projects_router
+app.include_router(projects_router)
+
+from .measurements import router as measurements_router
+app.include_router(measurements_router)
+
+from .materials import router as materials_router
+from .finance import router as finance_router
+app.include_router(materials_router)
+app.include_router(finance_router)
+
+from .field import router as field_router
+app.include_router(field_router)
+
+from .reports import router as reports_router
+from .insights import router as insights_router
+app.include_router(reports_router)
+app.include_router(insights_router)
+
+from .operations import router as operations_router
+app.include_router(operations_router)
+
+from .portfolio import router as portfolio_router
+app.include_router(portfolio_router)
+
+from .intelligence import router as intelligence_router
+app.include_router(intelligence_router)
+
+from .imports import router as imports_router
+app.include_router(imports_router)
+
+from .alerts import router as alerts_router
+app.include_router(alerts_router)
+
+from .report_export import router as report_export_router
+app.include_router(report_export_router)
+
+from .geo import router as geo_router
+app.include_router(geo_router)
+
+from .diary import router as diary_router
+app.include_router(diary_router)
+
+from .documents import router as documents_router
+app.include_router(documents_router)

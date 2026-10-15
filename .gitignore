@@ -6,3 +6,9 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+frontend/tsconfig.tsbuildinfo
+
+backend/.dev/
+*.db
+.local/
