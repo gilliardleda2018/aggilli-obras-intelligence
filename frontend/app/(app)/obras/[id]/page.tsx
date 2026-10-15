@@ -6,7 +6,8 @@ import {accessToken} from "../../../../lib/session";
 import {getDataset} from "../../../../lib/data";
 import {money, pct, percent, sum} from "../../../../lib/portfolio";
 import {ProjectForm, type ProjectDetails} from "./project-form";
-import {apiGet, type ProjectIntelligence} from "../../../../lib/api";
+import {apiGet, type ProjectIntelligence, type TrendWeek} from "../../../../lib/api";
+import {WeekBars} from "../../../../components/week-bars";
 import {CostChart, CostSummary, Probability, ProgressChart, ScheduleSummary, br, modelLabel} from "../../../../components/forecast-ui";
 
 export const dynamic = "force-dynamic";
@@ -28,11 +29,12 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
   const back = <Link href="/obras" className="back"><ArrowLeft/>Obras</Link>;
   const token = await accessToken();
   if (!token) return <>{back}<Callout tone="info" icon={Lock}>Autenticação necessária. <a className="link" href="/login">Entrar</a></Callout></>;
-  const [details, dashboard, data, intel] = await Promise.all([
+  const [details, dashboard, data, intel, trends] = await Promise.all([
     get<ProjectDetails & {name: string; location: string; source: string | null}>("/projects/" + encodeURIComponent(id) + "/details", token),
     get<Dashboard>("/projects/" + encodeURIComponent(id) + "/dashboard", token),
     getDataset(),
     apiGet<ProjectIntelligence>("/projects/" + encodeURIComponent(id) + "/intelligence"),
+    apiGet<{weeks: TrendWeek[]}>("/trends?weeks=16&project_id=" + encodeURIComponent(id)),
   ]);
   if (!details || !dashboard) return <>{back}<Callout icon={Lock}>Obra indisponível ou acesso não autorizado.</Callout></>;
   const row = data.projects.find(project => project.key === id);
@@ -89,6 +91,7 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
         <Card title="Evolução do avanço físico" subtitle="Medido × linha de base × previsão"><ProgressChart data={intel}/></Card>
         <Card title="Evolução do custo" subtitle="Incorrido acumulado e projeção do custo final"><CostChart data={intel}/></Card>
       </div>
+      {trends && <Card title="Evolução semanal da obra" subtitle="Custo incorrido, pago e programado — últimas 16 semanas"><WeekBars weeks={trends.weeks}/></Card>}
       <Card flush title="Como a previsão mudou" subtitle="Cada recálculo fica guardado com modelo e versão">
         <div className="table-wrap"><table>
           <thead><tr><th>Quando</th><th>Previsão</th><th>Resultado</th><th>Modelo</th></tr></thead>

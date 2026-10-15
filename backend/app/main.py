@@ -74,3 +74,6 @@ app.include_router(intelligence_router)
 
 from .imports import router as imports_router
 app.include_router(imports_router)
+
+from .alerts import router as alerts_router
+app.include_router(alerts_router)

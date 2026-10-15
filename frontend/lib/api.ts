@@ -48,3 +48,10 @@ export type PortfolioIntelligence = {
   projects: {id: string; name: string; status: string; source: string | null; schedule: ScheduleForecast; cost: CostForecast}[];
   cash: ({week_start: string; scheduled: string} | {overdue_scheduled: string})[];
 };
+
+export type Alert = {
+  key: string; type: string; severity: "high" | "medium" | "low"; project_id: string; project: string; title: string; detail: string;
+  evidence: {kind: string; id: string; label: string}[]; review: null | {decision: string; note: string | null; by: string; at: string};
+};
+export type AlertsResponse = {alerts: Alert[]; open: number; feedback: Record<string, {confirmed: number; false_alarm: number}>};
+export type TrendWeek = {week_start: string; incurred: Record<string, string>; incurred_total: string; paid: string; scheduled: string; entries: number};

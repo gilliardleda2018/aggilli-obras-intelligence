@@ -193,3 +193,17 @@ class ImportBatch(Base):
     summary: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
     committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+class AlertReview(Base):
+    """Decision of a person about an automatic alert; the alert itself is recomputed from the data."""
+    __tablename__ = "alert_reviews"
+    __table_args__ = (UniqueConstraint("organization_id", "alert_key", name="uq_alert_reviews_key"),
+                      CheckConstraint("decision IN ('CONFIRMED','FALSE_ALARM','RESOLVED')", name="ck_alert_reviews_decision"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    alert_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    alert_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    decision: Mapped[str] = mapped_column(String(20), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    reviewed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)

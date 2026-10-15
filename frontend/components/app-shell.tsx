@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  BrainCircuit, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
@@ -12,6 +12,7 @@ const NAV: {group: string; items: Item[]}[] = [
   {group: "Visão", items: [
     {href: "/", label: "Visão geral", icon: LayoutDashboard},
     {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
+    {href: "/alertas", label: "Alertas", icon: BellRing},
     {href: "/obras", label: "Obras", icon: Building2},
     {href: "/mapa", label: "Mapa", icon: Map, soon: true},
   ]},
@@ -36,7 +37,7 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 }
 
-export function AppShell({children, source}: {children: ReactNode; source: "api" | "reference"}) {
+export function AppShell({children, source, alertsOpen = 0}: {children: ReactNode; source: "api" | "reference"; alertsOpen?: number}) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -55,7 +56,7 @@ export function AppShell({children, source}: {children: ReactNode; source: "api"
               <Icon/>{item.label}<span className="soon">em breve</span></span>;
           }
           return <Link key={item.href} href={item.href} className={"nav-link" + (isActive(pathname, item.href) ? " active" : "")}>
-            <Icon/>{item.label}</Link>;
+            <Icon/>{item.label}{item.href === "/alertas" && alertsOpen > 0 && <span className="count">{alertsOpen}</span>}</Link>;
         })}
       </div>)}
       <div className="sidebar-foot"><b>Tuntum · Maranhão</b>{source === "api" ? "Dados do banco, com acesso por empresa e função" : SOURCE.label + " · " + SOURCE.detail}</div>
