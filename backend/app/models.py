@@ -163,3 +163,17 @@ class Payment(Base):
     reference:Mapped[str|None]=mapped_column(String(200),nullable=True)
     created_by:Mapped[str]=mapped_column(String(200),nullable=False)
     confirmed_by:Mapped[str|None]=mapped_column(String(200),nullable=True)
+
+class ForecastRun(Base):
+    """One forecast calculation; a new row only when the inputs (hash) or the model version change."""
+    __tablename__ = "forecast_runs"
+    __table_args__ = (UniqueConstraint("project_id", "kind", "model", "version", "input_hash", name="uq_forecast_runs_inputs"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    version: Mapped[str] = mapped_column(String(20), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    result: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)

@@ -1,10 +1,10 @@
-# Ambiente local completo (Windows): identidade de desenvolvimento, banco SQLite, importação de referência,
-# API (porta 8000) e frontend (porta 3100). Nada aqui serve para produção.
+﻿# Ambiente local completo (Windows): identidade de desenvolvimento, banco SQLite, importaÃ§Ã£o de referÃªncia,
+# API (porta 8000) e frontend (porta 3100). Nada aqui serve para produÃ§Ã£o.
 #
 #   powershell -ExecutionPolicy Bypass -File dev\run-local.ps1            # sobe tudo
 #   powershell -ExecutionPolicy Bypass -File dev\run-local.ps1 -Reset     # recria o banco local
 #
-# Depois abra http://localhost:3100/login e use "Entrar como usuário de desenvolvimento".
+# Depois abra http://localhost:3100/login e use "Entrar como usuÃ¡rio de desenvolvimento".
 param([switch]$Reset, [switch]$Wait, [int]$ApiPort = 8000, [int]$WebPort = 3100)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -24,6 +24,7 @@ try {
   if ($Reset -and (Test-Path $db)) { Remove-Item $db }
   & $py -m alembic upgrade head
   & $py -m scripts.import_tuntum --organization "Grupo MG (desenvolvimento)" --owner-subject dev-owner --apply
+  & $py -m scripts.seed_demo --owner-subject dev-owner
   $env:DEV_ACCESS_TOKEN = (& $py -m scripts.dev_identity token --sub dev-owner --hours 12 | Out-String).Trim()
   $api = Start-Process -PassThru -WindowStyle Hidden -FilePath $py -ArgumentList "-m", "uvicorn", "app.main:app", "--port", $ApiPort `
     -WorkingDirectory $backend -RedirectStandardOutput (Join-Path $work "api.log") -RedirectStandardError (Join-Path $work "api.err")
@@ -41,3 +42,4 @@ try {
 } finally { Pop-Location }
 Write-Host "API: http://localhost:$ApiPort/docs   Painel: http://localhost:$WebPort/login"
 if ($Wait) { Wait-Process -Id $api.Id, $web.Id }
+

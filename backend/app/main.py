@@ -68,3 +68,6 @@ app.include_router(operations_router)
 
 from .portfolio import router as portfolio_router
 app.include_router(portfolio_router)
+
+from .intelligence import router as intelligence_router
+app.include_router(intelligence_router)
