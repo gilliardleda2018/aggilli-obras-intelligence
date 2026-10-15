@@ -48,6 +48,7 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
               subtitle={details.address ?? "Endereço não informado"}
               actions={<><Link className="btn" href={"/obras/" + id + "/medicoes"}><ClipboardList/>Medições</Link>
                 <Link className="btn" href={"/obras/" + id + "/materiais"}><Package/>Materiais</Link>
+                <Link className="btn" href={"/obras/" + id + "/localizacao"}><MapPin/>Localização</Link>
                 <Link className="btn" href={"/relatorios/obra/" + id}><FileBarChart/>Relatório</Link>
                 <Link className="btn primary" href={"/operacao/" + id}><Receipt/>Despesas e pagamentos</Link></>}/>
     <div className="kpis">
@@ -146,8 +147,9 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
     </div>
 
     <div style={{marginTop: 18}}>
-      <Card title="Dados da obra" subtitle="Situação, responsável, orçamento, prazos e localização"
-            action={details.latitude ? <Badge tone="ok"><MapPin size={12}/> Localizada</Badge> : <Badge tone="warn">Sem coordenadas</Badge>}>
+      <Card title="Dados da obra" subtitle="Situação, responsável, orçamento e prazos"
+            action={<Link href={"/obras/" + id + "/localizacao"}>{details.latitude ? <Badge tone="ok"><MapPin size={12}/> Localizada</Badge>
+              : <Badge tone="warn"><MapPin size={12}/> Definir localização</Badge>}</Link>}>
         <ProjectForm id={id} details={details}/>
       </Card>
     </div>

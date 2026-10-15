@@ -14,7 +14,7 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
     {href: "/alertas", label: "Alertas", icon: BellRing},
     {href: "/obras", label: "Obras", icon: Building2},
-    {href: "/mapa", label: "Mapa", icon: Map, soon: true},
+    {href: "/mapa", label: "Mapa", icon: Map},
   ]},
   {group: "Alimentar", items: [
     {href: "/importar", label: "Importar planilha", icon: Upload},

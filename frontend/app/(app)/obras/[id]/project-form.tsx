@@ -23,10 +23,7 @@ export function ProjectForm({id, details}: {id: string; details: ProjectDetails}
         placeholder="não informado"/></label>
       <label>Início<input className="input" type="date" name="start_date" defaultValue={details.start_date ?? ""}/></label>
       <label>Término previsto<input className="input" type="date" name="end_date" defaultValue={details.end_date ?? ""}/></label>
-      <label>Latitude<input className="input" name="latitude" inputMode="decimal" defaultValue={details.latitude ?? ""} placeholder="-5,2591"/></label>
-      <label>Longitude<input className="input" name="longitude" inputMode="decimal" defaultValue={details.longitude ?? ""} placeholder="-44,6489"/></label>
     </div>
-    <p className="hint">Coordenadas só devem ser informadas quando conferidas no local ou por geocodificação validada — nunca estimadas.</p>
     <div style={{display: "flex", gap: 12, alignItems: "center"}}>
       <button className="btn primary" disabled={pending}>{pending ? "Salvando…" : "Salvar dados da obra"}</button>
       <span aria-live="polite" className={"feedback " + (state.ok ? "ok" : "err")}>{state.message}</span>

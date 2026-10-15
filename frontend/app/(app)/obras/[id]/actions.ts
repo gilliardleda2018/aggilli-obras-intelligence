@@ -22,18 +22,15 @@ export async function updateProject(projectId: string, _prev: State, form: FormD
   if (!token) return {ok: false, message: "Sessão expirada. Entre novamente."};
   const status = String(form.get("status") ?? "");
   const budget = decimal(form, "budget");
-  const latitude = decimal(form, "latitude");
-  const longitude = decimal(form, "longitude");
-  if (!STATUSES.includes(status) || budget === undefined || latitude === undefined || longitude === undefined)
-    return {ok: false, message: "Confira situação, orçamento e coordenadas (use ponto ou vírgula decimal)."};
-  if ((latitude === null) !== (longitude === null)) return {ok: false, message: "Informe latitude e longitude juntas."};
+  if (!STATUSES.includes(status) || budget === undefined)
+    return {ok: false, message: "Confira situação e orçamento (use ponto ou vírgula decimal)."};
   const date = (name: string) => {
     const value = String(form.get(name) ?? "");
     return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
   };
   const body = {
     municipality: text(form, "municipality", 120), address: text(form, "address", 300), responsible: text(form, "responsible", 200),
-    cost_center: text(form, "cost_center", 60), status, budget, start_date: date("start_date"), end_date: date("end_date"), latitude, longitude,
+    cost_center: text(form, "cost_center", 60), status, budget, start_date: date("start_date"), end_date: date("end_date"),
   };
   try {
     const response = await fetch(API + "/api/v1/projects/" + encodeURIComponent(projectId), {
@@ -41,7 +38,7 @@ export async function updateProject(projectId: string, _prev: State, form: FormD
     });
     if (!response.ok) {
       return {ok: false, message: response.status === 404 ? "Acesso negado ou obra não encontrada."
-        : response.status === 422 ? "Dados inválidos: confira datas (término após início) e coordenadas." : "Não foi possível salvar (" + response.status + ")."};
+        : response.status === 422 ? "Dados inválidos: confira as datas (término após o início)." : "Não foi possível salvar (" + response.status + ")."};
     }
   } catch {
     return {ok: false, message: "Não foi possível conectar à API."};

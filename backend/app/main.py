@@ -80,3 +80,6 @@ app.include_router(alerts_router)
 
 from .report_export import router as report_export_router
 app.include_router(report_export_router)
+
+from .geo import router as geo_router
+app.include_router(geo_router)
