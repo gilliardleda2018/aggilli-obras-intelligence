@@ -3,13 +3,14 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  BellRing, BrainCircuit, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
 type Item = {href: string; label: string; icon: typeof LayoutDashboard; soon?: boolean};
 const NAV: {group: string; items: Item[]}[] = [
   {group: "Visão", items: [
+    {href: "/simples", label: "Modo simples", icon: Sun},
     {href: "/", label: "Visão geral", icon: LayoutDashboard},
     {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
     {href: "/alertas", label: "Alertas", icon: BellRing},
@@ -31,7 +32,7 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/relatorios", label: "Relatórios", icon: FileBarChart},
   ]},
 ];
-const MOBILE = ["/", "/inteligencia", "/obras", "/fopag", "/medicoes"];
+const MOBILE = ["/simples", "/", "/inteligencia", "/obras", "/fopag"];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import {
-  AlertTriangle, ArrowRight, Banknote, CalendarClock, ChevronRight, FileWarning, Hammer, HardHat, Scale, Wallet,
+  AlertTriangle, ArrowRight, Sun, Banknote, CalendarClock, ChevronRight, FileWarning, Hammer, HardHat, Scale, Wallet,
 } from "lucide-react";
 import {PageHead} from "../../components/app-shell";
 import {PrintButton} from "../../components/print-button";
@@ -35,7 +35,7 @@ export default async function Overview() {
     {data.error && <div style={{marginBottom: 16}}><Callout icon={AlertTriangle}>{data.error}</Callout></div>}
     <PageHead eyebrow={data.sourceLabel + " · " + data.weekLabel} title="Central de obras"
               subtitle="Programação da semana, obrigações, contratos e pendências de todas as frentes."
-              actions={<><PrintButton/><Link className="btn primary" href="/fopag"><CalendarClock/>Abrir FOPAG</Link></>}/>
+              actions={<><Link className="btn" href="/simples"><Sun/>Modo simples</Link><PrintButton/><Link className="btn primary" href="/fopag"><CalendarClock/>Abrir FOPAG</Link></>}/>
 
     <div className="kpis">
       <Kpi label="Programado na semana" value={money(t.weekly)}
