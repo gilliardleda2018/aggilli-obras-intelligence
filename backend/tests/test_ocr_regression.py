@@ -80,3 +80,20 @@ def test_missing_sdk_returns_manual_fallback(monkeypatch):
     monkeypatch.setattr(builtins, "__import__", no_sdk)
     with pytest.raises(ocr.ExtractionUnavailable):
         ocr._client()
+
+def test_aws_provider_requires_workspace(monkeypatch):
+    import sys
+    monkeypatch.setenv("DOC_AI_PROVIDER", "aws")
+    monkeypatch.delenv("ANTHROPIC_AWS_WORKSPACE_ID", raising=False)
+    monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(AnthropicAWS=lambda **kwargs: object()))
+    with pytest.raises(ocr.ExtractionUnavailable, match="Workspace"):
+        ocr._client()
+
+
+def test_direct_provider_requires_key(monkeypatch):
+    import sys
+    monkeypatch.setenv("DOC_AI_PROVIDER", "anthropic")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=lambda **kwargs: object()))
+    with pytest.raises(ocr.ExtractionUnavailable, match="Chave"):
+        ocr._client()
