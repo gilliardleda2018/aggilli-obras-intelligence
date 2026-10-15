@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {AlertTriangle, ArrowLeft, CalendarClock, Gauge, Lock, MapPin, Receipt, Scale, Wallet} from "lucide-react";
+import {AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, Gauge, Lock, MapPin, Receipt, Scale, Wallet} from "lucide-react";
 import {PageHead} from "../../../../components/app-shell";
 import {Badge, Callout, Card, Kpi, Meter} from "../../../../components/ui";
 import {accessToken} from "../../../../lib/session";
@@ -41,7 +41,8 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
     {back}
     <PageHead eyebrow={(details.municipality ?? details.location) + (details.source ? " · origem: " + details.source : "")} title={details.name}
               subtitle={details.address ?? "Endereço não informado"}
-              actions={<Link className="btn primary" href={"/operacao/" + id}><Receipt/>Despesas e pagamentos</Link>}/>
+              actions={<><Link className="btn" href={"/obras/" + id + "/medicoes"}><ClipboardList/>Medições</Link>
+                <Link className="btn primary" href={"/operacao/" + id}><Receipt/>Despesas e pagamentos</Link></>}/>
     <div className="kpis">
       <Kpi label="Avanço físico" value={measured ? dashboard.physical_progress.toLocaleString("pt-BR") + "%" : "Sem medição"}
            note={measured ? (dashboard.planning_complete ? "medições aprovadas" : "planejamento incompleto") : "cadastre serviços e aprove medições"}
@@ -70,7 +71,8 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
                 <span>{stage.progress.toLocaleString("pt-BR")}%</span></div>
               <Meter value={stage.progress} tone="var(--ok)"/></div>
           </div>)}
-          {!measured && <p className="empty">Nenhum serviço cadastrado. O avanço físico só aparece com serviços e medições aprovadas.</p>}
+          {!measured && <p className="empty">Nenhum serviço cadastrado. O avanço físico só aparece com serviços e medições aprovadas.
+            <br/><Link className="link" href={"/obras/" + id + "/medicoes"}>Cadastrar serviços e medir</Link></p>}
         </Card>
       </div>
       <div className="stack">
