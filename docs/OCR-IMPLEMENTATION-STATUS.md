@@ -34,3 +34,10 @@ Não modificar CSS, componentes visuais, páginas, rotas externas, contratos de 
 
 ## Próxima ação
 Inspecionar apenas configuração IAM/workspace do OCR por métodos autorizados. Se houver bloqueio de ferramenta, registrar a limitação sem presumir o estado. Não habilitar `DOC_AI_PROVIDER` até concluir prova real e revisão de segurança.
+
+## Atualização — 2026-10-16: bloqueios de configuração e CI
+- Commit `b844fa926a2c43140dfabe8b1af43ee06b7cae4e`: falha segura para workspace AWS vazio ou chave da API Anthropic ausente.
+- Commit `c4336e18234b6b7f5903a52e260d5fdd208becc2`: testes de regressão para os dois cenários.
+- CI do commit `c4336e18234b6b7f5903a52e260d5fdd208becc2` confirmado como `success` em [38820331499](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38820331499) e [38820337666](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38820337666).
+- A verificação de presença de variável **não** prova permissão IAM, existência de workspace ou compatibilidade do modelo.
+- Sem leitura real de documento, sem ativação AWS, sem alterações de layout, migrações ou financeiro.
