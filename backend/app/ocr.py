@@ -111,10 +111,15 @@ def _client():
     except ImportError as error:
         raise ExtractionUnavailable("SDK de leitura automática não instalado") from error
     if provider == "aws":
+        workspace = os.environ.get("ANTHROPIC_AWS_WORKSPACE_ID", "").strip()
+        if not workspace:
+            raise ExtractionUnavailable("Workspace Claude Platform on AWS não configurado")
         return anthropic.AnthropicAWS(timeout=60), ""
     if provider == "bedrock":
         return anthropic.AnthropicBedrockMantle(aws_region=os.environ.get("AWS_REGION") or "us-east-1", timeout=60), "anthropic."
     if provider == "anthropic":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise ExtractionUnavailable("Chave da API Anthropic não configurada")
         return anthropic.Anthropic(timeout=60), ""
     raise ExtractionUnavailable(f"DOC_AI_PROVIDER desconhecido: {provider}")
 
