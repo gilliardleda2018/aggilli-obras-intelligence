@@ -1,6 +1,11 @@
-import type { ReactNode } from "react";
+import type {ReactNode} from "react";
+import {Inter} from "next/font/google";
 import "./globals.css";
-export const metadata={title:"Aggilli Obras Intelligence",description:"Gestão inteligente de obras"};
-export default function Layout({children}:{children:ReactNode}){
- return <html lang="pt-BR"><body>{children}</body></html>;
+
+const inter = Inter({subsets: ["latin"], variable: "--font-inter", display: "swap"});
+
+export const metadata = {title: "Aggilli Obras Intelligence", description: "Gestão inteligente de obras"};
+
+export default function Layout({children}: {children: ReactNode}) {
+  return <html lang="pt-BR" className={inter.variable}><body>{children}</body></html>;
 }

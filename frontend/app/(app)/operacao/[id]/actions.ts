@@ -1,6 +1,6 @@
 "use server";
 import {revalidatePath} from "next/cache";
-import {accessToken} from "../../../lib/session";
+import {accessToken} from "../../../../lib/session";
 
 const API=process.env.API_BASE_URL||"http://localhost:8000";
 type State={message:string;ok:boolean};
