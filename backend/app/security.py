@@ -80,8 +80,16 @@ def _check_license(request: Request, db: Session) -> None:
         raise HTTPException(status_code=402, detail="Licença do sistema vencida ou não ativada")
 
 
+def _oidc_configured() -> bool:
+    jwks_file = "" if os.getenv("APP_ENV", "").lower() == "production" else os.getenv("OIDC_JWKS_FILE", "")
+    return bool(os.getenv("OIDC_ISSUER") and os.getenv("OIDC_AUDIENCE")
+                and (os.getenv("OIDC_JWKS_URL", "").startswith("https://") or jwks_file))
+
+
 def require_identity(request: Request, authorization: str | None = Header(default=None),
                      db: Session = Depends(get_db)) -> str:
+    if not local_secret() and not _oidc_configured():
+        raise HTTPException(status_code=503, detail="Identity provider not configured")
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Bearer token required")
     token = authorization[7:]

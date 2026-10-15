@@ -101,3 +101,12 @@ export type FieldDoc = {
     site_reference: string | null; confidence: "high" | "medium" | "low" | null; issues: string[]};
   expense_id: string | null; recorded_by: string; created_at: string; taken_at: string | null; confirmed_by: string | null;
 };
+
+export type LicenseInfo = {enforced: boolean; state: "missing" | "active" | "expiring" | "grace" | "blocked"; days_left: number | null;
+  expires_at: string | null; grace_ends: string | null};
+export type Me = {id: string; email: string | null; name: string; must_change_password: boolean; local: boolean;
+  organizations: {id: string; name: string; role: string}[]; license: LicenseInfo};
+export type OrgUser = {membership_id: string; user_id: string; role: string; email: string | null; name: string; active: boolean;
+  must_change_password: boolean; locked: boolean; last_login_at: string | null; local: boolean; temporary_password?: string | null};
+export type LicenseStatus = LicenseInfo & {configured: boolean; holder: string | null; email: string | null; last_error: string | null;
+  can_manage: boolean};

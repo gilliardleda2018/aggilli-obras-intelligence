@@ -1,13 +1,15 @@
 "use client";
 import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
-import {useState, type ReactNode} from "react";
+import {useEffect, useState, type ReactNode} from "react";
 import {
-  BellRing, BrainCircuit, Camera, FileText, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Camera, FileText, KeyRound, ShieldCheck, UserCog, Users, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
+import type {LicenseInfo} from "../lib/api";
 
-type Item = {href: string; label: string; icon: typeof LayoutDashboard; soon?: boolean};
+type Item = {href: string; label: string; icon: typeof LayoutDashboard; soon?: boolean; manager?: boolean};
+type Account = {mustChange: boolean; manager: boolean; license: LicenseInfo} | null;
 const NAV: {group: string; items: Item[]}[] = [
   {group: "Visão", items: [
     {href: "/simples", label: "Modo simples", icon: Sun},
@@ -33,6 +35,11 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/materiais", label: "Materiais", icon: Package},
     {href: "/relatorios", label: "Relatórios", icon: FileBarChart},
   ]},
+  {group: "Administração", items: [
+    {href: "/usuarios", label: "Usuários", icon: Users, manager: true},
+    {href: "/licenca", label: "Licença do sistema", icon: ShieldCheck, manager: true},
+    {href: "/conta", label: "Minha conta", icon: UserCog},
+  ]},
 ];
 const MOBILE = ["/simples", "/", "/obras", "/diario", "/fopag"];
 
@@ -40,11 +47,28 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
 }
 
-export function AppShell({children, source, alertsOpen = 0}: {children: ReactNode; source: "api" | "reference"; alertsOpen?: number}) {
+const when = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("pt-BR", {timeZone: "America/Fortaleza"}) : "";
+
+/** License notice, as in MG Transportes: 7 days before the end, during the 5-day grace, and when suspended. */
+function LicenseBanner({license, manager}: {license: LicenseInfo; manager: boolean}) {
+  if (!license.enforced || license.state === "active") return null;
+  const text = license.state === "expiring" ? `A licença do sistema vence em ${when(license.expires_at)}. Renove pelo link de pagamento enviado pela Aggilli.`
+    : license.state === "grace" ? `A licença venceu em ${when(license.expires_at)}. O acesso será suspenso em ${when(license.grace_ends)} se não for renovada.`
+    : license.state === "blocked" ? "Acesso suspenso: licença do sistema vencida. Nenhum dado foi apagado; ao renovar, tudo volta como estava."
+    : "Licença do sistema ainda não ativada.";
+  return <div className={"license-banner" + (license.state === "expiring" ? "" : " danger")} role="status">
+    <ShieldCheck/><span>{text}</span>{manager && <Link className="link" href="/licenca">Abrir licença</Link>}
+  </div>;
+}
+
+export function AppShell({children, source, alertsOpen = 0, account = null}:
+  {children: ReactNode; source: "api" | "reference"; alertsOpen?: number; account?: Account}) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const items = NAV.flatMap(group => group.items);
+  const mustChange = Boolean(account?.mustChange) && pathname !== "/conta";
+  useEffect(() => { if (mustChange) router.replace("/conta?trocar=1"); }, [mustChange, router]);
   return <div className="app">
     <aside className="sidebar" aria-label="Navegação principal">
       <Link href="/" className="brand brand-logo" aria-label="Aggilli Obras Intelligence — início">
@@ -52,7 +76,7 @@ export function AppShell({children, source, alertsOpen = 0}: {children: ReactNod
         <small>OBRAS INTELLIGENCE</small></Link>
       {NAV.map(group => <div key={group.group}>
         <div className="nav-group">{group.group}</div>
-        {group.items.map(item => {
+        {group.items.filter(item => !item.manager || account?.manager).map(item => {
           const Icon = item.icon;
           if (item.soon) {
             return <span key={item.href} className="nav-link" aria-disabled="true" title="Em desenvolvimento">
@@ -80,10 +104,10 @@ export function AppShell({children, source, alertsOpen = 0}: {children: ReactNod
           ? <span className="source-pill live"><i/><span>Banco de dados</span></span>
           : <span className="source-pill" title={SOURCE.detail}><i/><span>Importação de referência</span></span>}
         {source === "api"
-          ? <a className="btn" href="/api/auth/logout" title="Sair">Sair</a>
+          ? <><Link className="btn" href="/conta" title="Minha conta"><KeyRound/></Link><a className="btn" href="/api/auth/logout" title="Sair">Sair</a></>
           : <a className="btn primary" href="/login">Entrar</a>}
       </header>
-      <main className="content">{children}</main>
+      <main className="content">{account && <LicenseBanner license={account.license} manager={account.manager}/>}{children}</main>
     </div>
     <nav className="mobile-nav" aria-label="Navegação">
       {MOBILE.map(href => {

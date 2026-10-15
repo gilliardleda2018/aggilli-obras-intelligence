@@ -1,5 +1,6 @@
 import {BarChart3, Building2, MapPinned, ShieldCheck} from "lucide-react";
 import {LoginFlow} from "./login-flow";
+import {PasswordLogin} from "../../components/account-forms";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,11 @@ export default function LoginPage() {
       <div className="auth-box">
         <img className="auth-logo-mobile" src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
         <h1>Entrar</h1>
-        <p>Use sua identidade corporativa. O acesso às obras depende da autorização da sua empresa.</p>
-        {process.env.ALLOW_DEV_LOGIN === "1" && <a className="btn primary" href="/api/auth/dev">Entrar como usuário de desenvolvimento</a>}
-        {projectId ? <LoginFlow projectId={projectId}/>
-          : <div className="callout"><span>Login indisponível: projeto de identidade não configurado neste ambiente.</span></div>}
+        <p>Entre com o e-mail e a senha cadastrados pelo administrador da sua empresa.</p>
+        <PasswordLogin/>
+        {process.env.ALLOW_DEV_LOGIN === "1" && <a className="btn" href="/api/auth/dev">Entrar como usuário de desenvolvimento</a>}
+        {projectId && process.env.OIDC_CLIENT_ID && <details className="auth-alt"><summary>Entrar com identidade corporativa</summary>
+          <LoginFlow projectId={projectId}/></details>}
       </div>
     </section>
   </main>;
