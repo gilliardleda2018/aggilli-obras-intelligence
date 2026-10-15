@@ -63,3 +63,20 @@ def test_inconsistent_reading_escalates_once(monkeypatch):
     assert calls == ["test-haiku", "test-sonnet"]
     assert result["engine"] == "test-sonnet"
     assert result["problems"] == []
+
+def test_non_dict_item_does_not_crash_consistency_check():
+    assert ocr.problems({"kind": "RECIBO", "confidence": "high",
+                         "total_amount": 10, "items": [None, {"total": 10}]}) == []
+
+
+def test_missing_sdk_returns_manual_fallback(monkeypatch):
+    import builtins
+    monkeypatch.setenv("DOC_AI_PROVIDER", "anthropic")
+    original = builtins.__import__
+    def no_sdk(name, *args, **kwargs):
+        if name == "anthropic":
+            raise ImportError("not installed")
+        return original(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, "__import__", no_sdk)
+    with pytest.raises(ocr.ExtractionUnavailable):
+        ocr._client()
