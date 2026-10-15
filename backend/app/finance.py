@@ -31,5 +31,6 @@ def financial_summary(project_id: str, subject: str = Depends(require_identity),
                       db: Session = Depends(get_db)):
     project = access(db, subject, project_id, ["OWNER","ADMIN","ENGINEER","INSPECTOR","VIEWER"])
     spent = db.scalar(select(func.coalesce(func.sum(CostEntry.amount), 0)).where(CostEntry.project_id == project.id))
-    return {"budget":str(project.budget), "spent":str(spent),
-            "remaining":str(project.budget-Decimal(str(spent)))}
+    budget = project.budget
+    return {"budget": None if budget is None else str(budget), "spent": str(spent),
+            "remaining": None if budget is None else str(budget - Decimal(str(spent)))}

@@ -2,17 +2,21 @@ import Link from "next/link";
 import {CheckCircle2} from "lucide-react";
 import {PageHead} from "../../../components/app-shell";
 import {Card} from "../../../components/ui";
-import {activities} from "../../../lib/tuntum-data";
-import {SOURCE, slug} from "../../../lib/portfolio";
+import {getDataset} from "../../../lib/data";
 
-export default function Atividades() {
+export const dynamic = "force-dynamic";
+
+export default async function Atividades() {
+  const data = await getDataset();
+  const withActivity = data.projects.filter(project => project.activity);
   return <>
-    <PageHead eyebrow={SOURCE.label} title="Atividades da semana" subtitle="Serviços relatados em cada frente de obra."/>
-    <Card flush title="Relato de serviços" subtitle={activities.length + " frentes com atividade relatada"}>
-      {activities.map(activity => <Link key={activity.project} href={"/obras/referencia/" + slug(activity.project)} className="list-item">
+    <PageHead eyebrow={data.sourceLabel} title="Atividades" subtitle="Último relato de serviço de cada frente de obra."/>
+    <Card flush title="Relatos de campo" subtitle={withActivity.length + " obras com relato"}>
+      {withActivity.map(project => <Link key={project.key} href={project.href} className="list-item">
         <span className="dot-icon tone-ok"><CheckCircle2/></span>
-        <div><b>{activity.project}</b><small>{activity.description}</small></div>
+        <div><b>{project.name}</b><small>{project.activity}</small></div>
       </Link>)}
+      {!withActivity.length && <p className="empty">Nenhum relato registrado.</p>}
     </Card>
   </>;
 }

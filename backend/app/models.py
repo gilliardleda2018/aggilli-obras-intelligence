@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, date, timezone
 from decimal import Decimal
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from .db import Base
 
@@ -21,15 +21,30 @@ class Membership(Base):
     subject_id: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(30), nullable=False)
 
+PROJECT_STATUSES = ("PLANNED", "IN_PROGRESS", "PAUSED", "DONE", "COST_POOL")
+
+
 class Project(Base):
     __tablename__ = "projects"
+    __table_args__ = (CheckConstraint("status IN ('PLANNED','IN_PROGRESS','PAUSED','DONE','COST_POOL')",
+                                      name="ck_projects_status"),)
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     location: Mapped[str] = mapped_column(String(300), nullable=False)
-    budget: Mapped[Decimal] = mapped_column(Numeric(16,2), nullable=False)
-    start_date: Mapped[date] = mapped_column(Date, nullable=False)
-    end_date: Mapped[date] = mapped_column(Date, nullable=False)
+    # Budget and dates are optional: imported works may not have them yet and they are never invented.
+    budget: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    municipality: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    # COST_POOL groups shared expenses that still need to be apportioned between works.
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="IN_PROGRESS", server_default="IN_PROGRESS")
+    responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    cost_center: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    source: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 class ServiceItem(Base):
     __tablename__ = "service_items"
@@ -100,8 +115,23 @@ class Inspection(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
 
+class LaborContract(Base):
+    """Labor contract (empreitada). Advance/balance are kept exactly as reported by the source document."""
+    __tablename__ = "labor_contracts"
+    __table_args__ = (UniqueConstraint("project_id", "source_ref", name="uq_labor_contracts_source"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    contractor: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    total: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)  # not always in the source
+    reported_advance: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    reported_balance: Mapped[Decimal | None] = mapped_column(Numeric(16,2), nullable=True)
+    source_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+
 class Expense(Base):
     __tablename__="expenses"
+    __table_args__=(UniqueConstraint("project_id","source_ref",name="uq_expenses_source"),)
     id:Mapped[str]=mapped_column(String(36),primary_key=True,default=uid)
     project_id:Mapped[str]=mapped_column(ForeignKey("projects.id"),nullable=False,index=True)
     description:Mapped[str]=mapped_column(String(300),nullable=False)
@@ -111,6 +141,10 @@ class Expense(Base):
     evidence_key:Mapped[str|None]=mapped_column(String(500),nullable=True)
     status:Mapped[str]=mapped_column(String(20),nullable=False,default="OPEN")
     created_by:Mapped[str]=mapped_column(String(200),nullable=False)
+    expense_date:Mapped[date|None]=mapped_column(Date,nullable=True)
+    notes:Mapped[str|None]=mapped_column(String(500),nullable=True)
+    contract_id:Mapped[str|None]=mapped_column(ForeignKey("labor_contracts.id",name="fk_expenses_contract"),nullable=True)
+    source_ref:Mapped[str|None]=mapped_column(String(120),nullable=True)
 
 class Payment(Base):
     __tablename__="payments"
