@@ -177,3 +177,19 @@ class ForecastRun(Base):
     status: Mapped[str] = mapped_column(String(30), nullable=False)
     result: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
+class ImportBatch(Base):
+    """Uploaded spreadsheet: parsed rows stay here as a preview until the user confirms the import."""
+    __tablename__ = "import_batches"
+    __table_args__ = (CheckConstraint("status IN ('PREVIEW','COMMITTED','DISCARDED')", name="ck_import_batches_status"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    file_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="PREVIEW")
+    rows: Mapped[str] = mapped_column(String, nullable=False)
+    summary: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+    committed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
