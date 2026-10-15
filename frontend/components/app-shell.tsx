@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useEffect, useState, type ReactNode} from "react";
 import {
-  BellRing, BrainCircuit, Camera, CircleHelp, FileText, KeyRound, ShieldCheck, UserCog, Users, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Menu as MenuIcon, X, Camera, CircleHelp, FileText, KeyRound, ShieldCheck, UserCog, Users, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 import type {LicenseInfo} from "../lib/api";
@@ -42,7 +42,7 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/conta", label: "Minha conta", icon: UserCog},
   ]},
 ];
-const MOBILE = ["/simples", "/", "/obras", "/diario", "/fopag"];
+const MOBILE = ["/simples", "/", "/obras", "/diario"];  // + "Menu", which opens the full sidebar as a drawer
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
@@ -70,8 +70,12 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
   const items = NAV.flatMap(group => group.items);
   const mustChange = Boolean(account?.mustChange) && pathname !== "/conta";
   useEffect(() => { if (mustChange) router.replace("/conta?trocar=1"); }, [mustChange, router]);
+  const [menu, setMenu] = useState(false);
+  useEffect(() => setMenu(false), [pathname]);  // close the phone drawer after navigating
   return <div className="app">
-    <aside className="sidebar" aria-label="Navegação principal">
+    {menu && <div className="menu-backdrop" onClick={() => setMenu(false)} aria-hidden/>}
+    <aside className={"sidebar" + (menu ? " open" : "")} aria-label="Navegação principal" id="menu-principal">
+      <button type="button" className="menu-close" onClick={() => setMenu(false)} aria-label="Fechar menu"><X/></button>
       <Link href="/" className="brand brand-logo" aria-label="Aggilli Obras Intelligence — início">
         <img src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
         <small>OBRAS INTELLIGENCE</small></Link>
@@ -83,7 +87,8 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
             return <span key={item.href} className="nav-link" aria-disabled="true" title="Em desenvolvimento">
               <Icon/>{item.label}<span className="soon">em breve</span></span>;
           }
-          return <Link key={item.href} href={item.href} className={"nav-link" + (isActive(pathname, item.href) ? " active" : "")}>
+          return <Link key={item.href} href={item.href} onClick={() => setMenu(false)}
+                       className={"nav-link" + (isActive(pathname, item.href) ? " active" : "")}>
             <Icon/>{item.label}{item.href === "/alertas" && alertsOpen > 0 && <span className="count">{alertsOpen}</span>}</Link>;
         })}
       </div>)}
@@ -116,6 +121,8 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
         const Icon = item.icon;
         return <Link key={href} href={href} className={isActive(pathname, href) ? "active" : ""}><Icon/>{item.label.split(" ")[0]}</Link>;
       })}
+      <button type="button" className={menu ? "active" : ""} onClick={() => setMenu(open => !open)} aria-expanded={menu}
+              aria-controls="menu-principal"><MenuIcon/>Menu</button>
     </nav>
   </div>;
 }
