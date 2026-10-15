@@ -55,3 +55,12 @@ export type Alert = {
 };
 export type AlertsResponse = {alerts: Alert[]; open: number; feedback: Record<string, {confirmed: number; false_alarm: number}>};
 export type TrendWeek = {week_start: string; incurred: Record<string, string>; incurred_total: string; paid: string; scheduled: string; entries: number};
+
+export type MaterialRow = {
+  id: string; project_id: string; project?: string; name: string; unit: string; category: string | null; balance: string; min_stock: string | null;
+  avg_cost: string | null; stock_value: string; purchased: string; consumed: string; consumed_value: string; daily_consumption_30d: string;
+  coverage_days: number | null; planned_quantity: string | null; service_id: string | null; service: string | null; service_progress: number | null;
+  expected_consumption: string | null; flags: string[];
+};
+export type MovementRow = {id: string; kind: "IN" | "OUT"; quantity: string; date: string; unit_cost: string | null; supplier: string | null;
+  note: string | null; expense_id: string | null; recorded_by: string};

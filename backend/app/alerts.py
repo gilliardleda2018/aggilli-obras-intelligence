@@ -18,7 +18,8 @@ from sqlalchemy.orm import Session
 from .classifier import normalize
 from .db import get_db
 from .intelligence import project_intelligence
-from .models import AlertReview, AuditEvent, Expense, Measurement, Membership, Payment, Project, ServiceItem
+from .materials import material_rows
+from .models import AlertReview, AuditEvent, Expense, Material, Measurement, Membership, Payment, Project, ServiceItem
 from .security import require_identity
 
 router = APIRouter(prefix="/api/v1", tags=["alerts"])
@@ -30,6 +31,12 @@ SEVERITY = {"high": 0, "medium": 1, "low": 2}
 def brl(value) -> str:
     text = f"{float(value):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return "R$ " + text
+
+
+def qty(value, places: int = 3) -> str:
+    """Brazilian quantity format without trailing zeros: 170.000 → 170; 143.281 → 143,281; 1234.5 → 1.234,5."""
+    text = f"{Decimal(str(value)):,.{places}f}".rstrip("0").rstrip(".")
+    return text.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _br_date(iso) -> str:
@@ -126,7 +133,28 @@ def detect(db: Session, projects: list[Project], today: date | None = None) -> l
                                  f"Medição aguardando aprovação há {age} dias", f"{service.name}: {measurement.quantity} {service.unit}.",
                                  [{"kind": "measurement", "id": measurement.id, "label": service.name}]))
 
-    # 5) Forecast-based risks and stale data, per work in progress.
+    # 5) Materials: low stock, stockout within a week, consumption above what the measured progress justifies.
+    materials = db.scalars(select(Material).where(Material.project_id.in_(list(by_id)))).all() if by_id else []
+    for row in material_rows(db, list(materials), today):
+        project = by_id[row["project_id"]]
+        if "consumo_acima" in row["flags"]:
+            alerts.append(_alert(f"consumption:{row['id']}:{row['consumed']}", "consumo_acima", "high", project,
+                                 f"Consumo de {row['name']} acima do avanço medido",
+                                 f"Consumido {qty(row['consumed'])} {row['unit']} contra {qty(row['expected_consumption'])} esperados para "
+                                 f"{qty(row['service_progress'], 1)}% de {row['service']}: verifique perdas, desvio ou quantitativo.",
+                                 [{"kind": "material", "id": row["id"], "label": row["name"]}]))
+        if "ruptura_proxima" in row["flags"]:
+            alerts.append(_alert(f"stockout:{row['id']}:{today.isocalendar()[1]}", "ruptura_proxima", "medium", project,
+                                 f"{row['name']} acaba em cerca de {row['coverage_days']} dias",
+                                 f"Saldo {qty(row['balance'])} {row['unit']} e consumo médio de {qty(row['daily_consumption_30d'], 1)} {row['unit']}/dia: programe a compra.",
+                                 [{"kind": "material", "id": row["id"], "label": row["name"]}]))
+        elif "estoque_baixo" in row["flags"]:
+            alerts.append(_alert(f"lowstock:{row['id']}:{today.isocalendar()[1]}", "estoque_baixo", "low", project,
+                                 f"Estoque de {row['name']} abaixo do mínimo",
+                                 f"Saldo {qty(row['balance'])} {row['unit']} contra mínimo de {qty(row['min_stock'])}.",
+                                 [{"kind": "material", "id": row["id"], "label": row["name"]}]))
+
+    # 6) Forecast-based risks and stale data, per work in progress.
     for project in projects:
         if project.status != "IN_PROGRESS":
             continue
