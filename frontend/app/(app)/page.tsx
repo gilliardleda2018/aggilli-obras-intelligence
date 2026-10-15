@@ -6,7 +6,9 @@ import {PageHead} from "../../components/app-shell";
 import {PrintButton} from "../../components/print-button";
 import {Badge, Callout, Card, Kpi, Meter} from "../../components/ui";
 import {getDataset, summarize} from "../../lib/data";
-import {apiGet, type PortfolioIntelligence} from "../../lib/api";
+import {apiGet, type AlertsResponse, type PortfolioIntelligence, type TrendWeek} from "../../lib/api";
+import {AlertList} from "../../components/alert-list";
+import {WeekBars} from "../../components/week-bars";
 import {CostSummary, Probability, ScheduleSummary} from "../../components/forecast-ui";
 import {compactMoney, money, pct, percent, reconciliation, sum} from "../../lib/portfolio";
 
@@ -14,7 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default async function Overview() {
   const data = await getDataset();
-  const intel = data.source === "api" ? await apiGet<PortfolioIntelligence>("/intelligence/portfolio") : null;
+  const [intel, alerts, trends] = data.source === "api"
+    ? await Promise.all([apiGet<PortfolioIntelligence>("/intelligence/portfolio"), apiGet<AlertsResponse>("/alerts"),
+        apiGet<{weeks: TrendWeek[]}>("/trends?weeks=12")])
+    : [null, null, null];
   const forecasts = (intel?.projects ?? []).filter(p => p.schedule.status === "ok" || p.cost.status === "ok")
     .sort((a, b) => (a.schedule.probability_on_time ?? 1) - (b.schedule.probability_on_time ?? 1));
   const awaiting = (intel?.projects ?? []).length - forecasts.length;
@@ -53,6 +58,14 @@ export default async function Overview() {
         </Link>)}
         {!forecasts.length && <p className="empty">Nenhuma obra com dados suficientes ainda. Cadastre serviços com pesos, aprove medições e
           lance despesas com data — as previsões aparecem sozinhas.</p>}
+      </Card>
+    </div>}
+
+    {alerts && trends && <div className="grid-main" style={{marginBottom: 18}}>
+      <Card title="Evolução semanal" subtitle="Custo incorrido, pago com comprovante e programado — últimas 12 semanas"><WeekBars weeks={trends.weeks}/></Card>
+      <Card flush title="Alertas" subtitle={alerts.open + " em aberto · verificados a cada lançamento"}
+            action={<Link className="link" href="/alertas">Revisar<ArrowRight/></Link>}>
+        <AlertList alerts={alerts.alerts.slice(0, 4)} compact/>
       </Card>
     </div>}
 
