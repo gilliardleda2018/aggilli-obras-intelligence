@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, Gauge, Lock, MapPin, Receipt, Scale, Wallet} from "lucide-react";
+import {AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, FileBarChart, Gauge, Lock, MapPin, Package, Receipt, Scale, Wallet} from "lucide-react";
 import {PageHead} from "../../../../components/app-shell";
 import {Badge, Callout, Card, Kpi, Meter} from "../../../../components/ui";
 import {accessToken} from "../../../../lib/session";
@@ -47,6 +47,8 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
     <PageHead eyebrow={(details.municipality ?? details.location) + (details.source ? " · origem: " + details.source : "")} title={details.name}
               subtitle={details.address ?? "Endereço não informado"}
               actions={<><Link className="btn" href={"/obras/" + id + "/medicoes"}><ClipboardList/>Medições</Link>
+                <Link className="btn" href={"/obras/" + id + "/materiais"}><Package/>Materiais</Link>
+                <Link className="btn" href={"/relatorios/obra/" + id}><FileBarChart/>Relatório</Link>
                 <Link className="btn primary" href={"/operacao/" + id}><Receipt/>Despesas e pagamentos</Link></>}/>
     <div className="kpis">
       <Kpi label="Avanço físico" value={measured ? dashboard.physical_progress.toLocaleString("pt-BR") + "%" : "Sem medição"}

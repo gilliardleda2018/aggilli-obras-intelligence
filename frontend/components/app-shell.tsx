@@ -27,8 +27,8 @@ const NAV: {group: string; items: Item[]}[] = [
   {group: "Campo", items: [
     {href: "/atividades", label: "Atividades", icon: HardHat},
     {href: "/medicoes", label: "Medições", icon: ClipboardList},
-    {href: "/materiais", label: "Materiais", icon: Package, soon: true},
-    {href: "/relatorios", label: "Relatórios", icon: FileBarChart, soon: true},
+    {href: "/materiais", label: "Materiais", icon: Package},
+    {href: "/relatorios", label: "Relatórios", icon: FileBarChart},
   ]},
 ];
 const MOBILE = ["/", "/inteligencia", "/obras", "/fopag", "/medicoes"];

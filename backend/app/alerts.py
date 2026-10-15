@@ -33,6 +33,12 @@ def brl(value) -> str:
     return "R$ " + text
 
 
+def qty(value, places: int = 3) -> str:
+    """Brazilian quantity format without trailing zeros: 170.000 → 170; 143.281 → 143,281; 1234.5 → 1.234,5."""
+    text = f"{Decimal(str(value)):,.{places}f}".rstrip("0").rstrip(".")
+    return text.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def _br_date(iso) -> str:
     return iso.strftime("%d/%m/%Y") if hasattr(iso, "strftime") else "/".join(reversed(str(iso).split("-")))
 
@@ -134,18 +140,18 @@ def detect(db: Session, projects: list[Project], today: date | None = None) -> l
         if "consumo_acima" in row["flags"]:
             alerts.append(_alert(f"consumption:{row['id']}:{row['consumed']}", "consumo_acima", "high", project,
                                  f"Consumo de {row['name']} acima do avanço medido",
-                                 f"Consumido {row['consumed']} {row['unit']} contra {row['expected_consumption']} esperados para "
-                                 f"{row['service_progress']}% de {row['service']}: verifique perdas, desvio ou quantitativo.",
+                                 f"Consumido {qty(row['consumed'])} {row['unit']} contra {qty(row['expected_consumption'])} esperados para "
+                                 f"{qty(row['service_progress'], 1)}% de {row['service']}: verifique perdas, desvio ou quantitativo.",
                                  [{"kind": "material", "id": row["id"], "label": row["name"]}]))
         if "ruptura_proxima" in row["flags"]:
             alerts.append(_alert(f"stockout:{row['id']}:{today.isocalendar()[1]}", "ruptura_proxima", "medium", project,
                                  f"{row['name']} acaba em cerca de {row['coverage_days']} dias",
-                                 f"Saldo {row['balance']} {row['unit']} e consumo médio de {row['daily_consumption_30d']} {row['unit']}/dia: programe a compra.",
+                                 f"Saldo {qty(row['balance'])} {row['unit']} e consumo médio de {qty(row['daily_consumption_30d'], 1)} {row['unit']}/dia: programe a compra.",
                                  [{"kind": "material", "id": row["id"], "label": row["name"]}]))
         elif "estoque_baixo" in row["flags"]:
             alerts.append(_alert(f"lowstock:{row['id']}:{today.isocalendar()[1]}", "estoque_baixo", "low", project,
                                  f"Estoque de {row['name']} abaixo do mínimo",
-                                 f"Saldo {row['balance']} {row['unit']} contra mínimo de {row['min_stock']}.",
+                                 f"Saldo {qty(row['balance'])} {row['unit']} contra mínimo de {qty(row['min_stock'])}.",
                                  [{"kind": "material", "id": row["id"], "label": row["name"]}]))
 
     # 6) Forecast-based risks and stale data, per work in progress.

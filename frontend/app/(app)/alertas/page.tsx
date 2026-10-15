@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 const TYPE: Record<string, string> = {
   possivel_duplicidade: "Possível duplicidade", valor_incomum: "Valor incomum", pagamento_vencido: "Pagamento sem confirmação",
   medicao_parada: "Medição parada", risco_atraso: "Risco de atraso", risco_estouro: "Risco de estouro", queda_produtividade: "Queda de produtividade",
-  sem_medicao_recente: "Sem medição recente",
+  sem_medicao_recente: "Sem medição recente", consumo_acima: "Consumo de material acima", ruptura_proxima: "Ruptura de estoque",
+  estoque_baixo: "Estoque baixo",
 };
 
 export default async function Alertas({searchParams}: {searchParams: Promise<{todos?: string}>}) {
