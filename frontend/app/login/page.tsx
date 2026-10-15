@@ -7,9 +7,10 @@ export default function LoginPage() {
   const projectId = process.env.NEXT_PUBLIC_DESCOPE_PROJECT_ID;
   return <main className="auth">
     <section className="auth-art">
-      <div className="brand" style={{padding: 0}}><span className="brand-mark">A</span>
-        <span><b style={{color: "#fff"}}>AGGILLI</b><small style={{color: "#9fd6df"}}>OBRAS INTELLIGENCE</small></span></div>
-      <div>
+      <span/>
+      <div className="auth-hero">
+        <img className="auth-logo" src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
+        <div className="auth-product">Obras Intelligence</div>
         <h2>Suas obras, do canteiro ao caixa, em uma só tela.</h2>
         <ul>
           <li><Building2/>Carteira de obras com contratos e programação semanal</li>
@@ -22,6 +23,7 @@ export default function LoginPage() {
     </section>
     <section className="auth-panel">
       <div className="auth-box">
+        <img className="auth-logo-mobile" src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
         <h1>Entrar</h1>
         <p>Use sua identidade corporativa. O acesso às obras depende da autorização da sua empresa.</p>
         {process.env.ALLOW_DEV_LOGIN === "1" && <a className="btn primary" href="/api/auth/dev">Entrar como usuário de desenvolvimento</a>}

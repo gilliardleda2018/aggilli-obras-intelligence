@@ -39,7 +39,9 @@ export function AppShell({children, source}: {children: ReactNode; source: "api"
   const items = NAV.flatMap(group => group.items);
   return <div className="app">
     <aside className="sidebar" aria-label="Navegação principal">
-      <Link href="/" className="brand"><span className="brand-mark">A</span><span><b>AGGILLI</b><small>OBRAS INTELLIGENCE</small></span></Link>
+      <Link href="/" className="brand brand-logo" aria-label="Aggilli Obras Intelligence — início">
+        <img src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
+        <small>OBRAS INTELLIGENCE</small></Link>
       {NAV.map(group => <div key={group.group}>
         <div className="nav-group">{group.group}</div>
         {group.items.map(item => {
