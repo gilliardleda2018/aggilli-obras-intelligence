@@ -71,3 +71,6 @@ app.include_router(portfolio_router)
 
 from .intelligence import router as intelligence_router
 app.include_router(intelligence_router)
+
+from .imports import router as imports_router
+app.include_router(imports_router)
