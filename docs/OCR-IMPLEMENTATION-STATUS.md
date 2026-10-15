@@ -50,3 +50,10 @@ Inspecionar apenas configuração IAM/workspace do OCR por métodos autorizados.
 - Risco: revisar privilégio mínimo antes da ativação. Não mudar IAM, ECS, CSS, páginas, banco ou finanças nesta frente.
 - Sem inferência real executada; Etapa 3 ainda bloqueada por ausência de workspace comprovado.
 - A outra instância deve comunicar por PR/arquivo documental qualquer alteração compartilhada e evitar sobrescrever os arquivos OCR.
+
+## Etapa 3/4 — Homologação isolada: limite de evidência
+- CI no SHA `d21de351f5f4992c7686f29e75e584bff7d3ed34`: success em [38822089792](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38822089792) e [38822093579](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38822093579).
+- Testes simulados verificam contrato de extração, escalonamento, fallback, documento pendente, deduplicação e confirmação humana. Não representam inferência real.
+- Teste real com documento sintético **não executado**: produção mantém `DOC_AI_PROVIDER=off`, workspace não configurado e modelo/provedor ainda não homologados.
+- Não usar dados de cliente nem criar despesas para forçar o teste. Homologação real deve ocorrer em ambiente isolado com permissões verificadas.
+- Etapa 3 permanece bloqueada no gate de integração; nenhuma conclusão de OCR funcional em produção.
