@@ -142,3 +142,33 @@ def test_permissions_and_limits(env):
     who["sub"] = "outsider"
     assert client.get(f"/api/v1/imports/{batch}").status_code == 404
     assert client.post(f"/api/v1/imports/{batch}/commit", json={}).status_code == 404
+
+
+def test_manual_project_override_recovers_missing_project_only(env):
+    client, engine, ids, _ = env
+    response = upload(client, CSV.encode("utf-8"), "override.csv")
+    assert response.status_code == 201
+    batch = response.json()
+    missing = next(row for row in batch["rows"] if row["line"] == 9)
+    assert not missing["ok"] and missing["project_id"] is None
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"9": {"project_id": ids["MG Tabocal"]}}
+    })
+    assert result.status_code == 200, result.text
+    assert result.json()["created"] == 4
+    with Session(engine) as db:
+        expense = db.scalar(select(Expense).where(Expense.supplier == "Fulano"))
+        assert expense is not None and expense.project_id == ids["MG Tabocal"]
+
+
+def test_manual_project_override_does_not_bypass_invalid_amount(env):
+    client, engine, ids, _ = env
+    csv_data = "Data;Obra;Fornecedor;Descrição;Valor\\n28/08/2026;Obra inexistente;Teste;Serviço;inválido\\n"
+    batch = upload(client, csv_data.encode(), "invalid.csv").json()
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"2": {"project_id": ids["MG Tabocal"]}}
+    })
+    assert result.status_code == 200
+    assert result.json()["created"] == 0
+    with Session(engine) as db:
+        assert db.scalar(select(func.count(Expense.id))) == 0
