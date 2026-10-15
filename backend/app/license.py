@@ -203,9 +203,9 @@ def _store(row: SystemLicense, code: str, signed: dict) -> None:
 
 
 def activate(db: Session, code: str, *, organization_id: str, actor: str, cfg: Config | None = None,
-             post=_post) -> Status:
+             post=None) -> Status:
     """Administrator pastes the code received by e-mail; the installation is bound to it."""
-    cfg = cfg or config()
+    cfg, post = cfg or config(), post or _post
     code = (code or "").strip()
     for line in code.splitlines():  # accept the whole e-mail block ("Código: xxx")
         if ":" in line and len(line.split(":", 1)[1].strip()) >= 20:
@@ -229,9 +229,9 @@ def activate(db: Session, code: str, *, organization_id: str, actor: str, cfg: C
     return status(db, cfg)
 
 
-def refresh(db: Session, cfg: Config | None = None, post=_post, *, force: bool = False, timeout: float = 5) -> None:
+def refresh(db: Session, cfg: Config | None = None, post=None, *, force: bool = False, timeout: float = 5) -> None:
     """Re-activate with the stored code to pick up renewals. Failures keep the current license."""
-    cfg = cfg or config()
+    cfg, post = cfg or config(), post or _post
     row = db.get(SystemLicense, 1)
     if row is None or not row.activation_code or not cfg.record_set:
         return
