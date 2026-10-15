@@ -24,7 +24,8 @@ Parameters:
     Default: latest
   GithubRepository:
     Type: String
-    Default: gilliardleda2018/aggilli-obras-intelligence
+    Default: gilliardleda2018@42643178/aggilli-obras-intelligence@1419355314
+    Description: Como aparece no sub do token do GitHub (este repositorio usa o formato imutavel, com IDs numericos).
   CreateGithubOidcProvider:
     Type: String
     Default: "true"
