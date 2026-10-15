@@ -349,3 +349,45 @@ tfoot td { font-weight: 700; background: var(--surface-2); border-bottom: 0; }
   .simple-card b { font-size: 24px; }
   .simple-row { padding: 16px; gap: 14px; }
 }
+
+/* Diário de obra — built for a phone in one hand on site: big targets, camera first. */
+.diary-grid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.diary-form { position: sticky; top: 76px; }
+.diary-label { display: grid; gap: 6px; font-weight: 600; font-size: 14px; margin-bottom: 14px; }
+.diary-label .input { width: 100%; height: 44px; font-weight: 400; font-size: 16px; }
+.diary-label textarea.input { height: auto; padding: 10px 12px; line-height: 1.45; resize: vertical; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong);
+  background: var(--surface); font-weight: 500; font-size: 14px; color: var(--text-2); text-decoration: none; cursor: pointer; }
+.chip svg { width: 16px; height: 16px; }
+.chip.on { background: var(--brand-50); border-color: var(--brand); color: var(--brand-600); }
+.btn.big { height: 48px; font-size: 15px; border-radius: 12px; }
+.btn.wide { width: 100%; margin-top: 6px; }
+.btn:disabled { opacity: .7; cursor: progress; }
+.diary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.diary-picked { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.diary-picked figure { margin: 0; position: relative; display: grid; gap: 6px; }
+.diary-picked img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 10px; background: var(--surface-2); }
+.diary-picked .select { width: 100%; height: 34px; font-size: 13px; padding: 0 6px; }
+.diary-picked .remove { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: rgba(15, 23, 42, .65); color: #fff; cursor: pointer; }
+.diary-picked .remove svg { width: 16px; height: 16px; }
+.form-error { color: var(--danger); background: var(--danger-50); border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-size: 14px; }
+.diary-done { display: flex; gap: 10px; background: var(--ok-50); color: #0b6b3c; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; }
+.diary-done > svg { flex: none; width: 20px; height: 20px; }
+.diary-done ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.diary-done li { display: flex; align-items: center; gap: 6px; }
+.diary-done li svg { width: 14px; height: 14px; }
+.diary-done .failed li { color: var(--danger); }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.diary-report { display: grid; gap: 8px; margin-bottom: 14px; }
+.diary-report p { margin: 0; white-space: pre-line; line-height: 1.55; font-size: 15px; }
+.diary-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.diary-photos figure { margin: 0; display: grid; gap: 6px; }
+.diary-photos img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 10px; background: var(--surface-2); display: block; }
+.diary-photos figcaption { display: grid; gap: 3px; justify-items: start; }
+.diary-photos small { color: var(--text-3); font-size: 12.5px; }
+.diary-count { display: flex; align-items: center; gap: 8px; color: var(--text-2); margin: 0; }
+.diary-count svg { width: 18px; height: 18px; }
+@media (max-width: 980px) { .diary-grid { grid-template-columns: 1fr; } .diary-form { position: static; } }

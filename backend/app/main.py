@@ -83,3 +83,6 @@ app.include_router(report_export_router)
 
 from .geo import router as geo_router
 app.include_router(geo_router)
+
+from .diary import router as diary_router
+app.include_router(diary_router)

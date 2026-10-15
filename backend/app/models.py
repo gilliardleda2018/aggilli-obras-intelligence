@@ -134,6 +134,34 @@ class FieldReport(Base):
     summary: Mapped[str] = mapped_column(String(5000), nullable=False)
     recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
 
+class FieldPhoto(Base):
+    """Site photo for the work diary. The original file is kept untouched (sha256 = integrity evidence).
+    Location comes from the photo's own GPS metadata (EXIF) or from the phone at upload time (DEVICE) — never guessed."""
+    __tablename__ = "field_photos"
+    __table_args__ = (UniqueConstraint("project_id", "sha256", name="uq_field_photos_file"),
+                      CheckConstraint("location_source IN ('EXIF','DEVICE')", name="ck_field_photos_location_source"),
+                      CheckConstraint("taken_at_source IN ('EXIF','DEVICE')", name="ck_field_photos_taken_at_source"))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), nullable=False, index=True)
+    report_id: Mapped[str | None] = mapped_column(ForeignKey("field_reports.id", name="fk_field_photos_report"), nullable=True, index=True)
+    service_id: Mapped[str | None] = mapped_column(ForeignKey("service_items.id", name="fk_field_photos_service"), nullable=True, index=True)
+    caption: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    taken_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    taken_at_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    accuracy_m: Mapped[Decimal | None] = mapped_column(Numeric(8,1), nullable=True)
+    location_source: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    distance_m: Mapped[int | None] = mapped_column(Integer, nullable=True)  # to the project location when the photo was sent
+    recorded_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, nullable=False)
+
 class Inspection(Base):
     __tablename__ = "inspections"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)

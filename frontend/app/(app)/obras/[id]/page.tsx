@@ -1,5 +1,5 @@
 import Link from "next/link";
-import {AlertTriangle, ArrowLeft, CalendarClock, ClipboardList, FileBarChart, Gauge, Lock, MapPin, Package, Receipt, Scale, Wallet} from "lucide-react";
+import {AlertTriangle, ArrowLeft, CalendarClock, Camera, ClipboardList, FileBarChart, Gauge, Lock, MapPin, Package, Receipt, Scale, Wallet} from "lucide-react";
 import {PageHead} from "../../../../components/app-shell";
 import {Badge, Callout, Card, Kpi, Meter} from "../../../../components/ui";
 import {accessToken} from "../../../../lib/session";
@@ -46,7 +46,8 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
     {back}
     <PageHead eyebrow={(details.municipality ?? details.location) + (details.source ? " · origem: " + details.source : "")} title={details.name}
               subtitle={details.address ?? "Endereço não informado"}
-              actions={<><Link className="btn" href={"/obras/" + id + "/medicoes"}><ClipboardList/>Medições</Link>
+              actions={<><Link className="btn" href={"/obras/" + id + "/diario"}><Camera/>Diário de obra</Link>
+                <Link className="btn" href={"/obras/" + id + "/medicoes"}><ClipboardList/>Medições</Link>
                 <Link className="btn" href={"/obras/" + id + "/materiais"}><Package/>Materiais</Link>
                 <Link className="btn" href={"/obras/" + id + "/localizacao"}><MapPin/>Localização</Link>
                 <Link className="btn" href={"/relatorios/obra/" + id}><FileBarChart/>Relatório</Link>

@@ -74,3 +74,15 @@ export type MapProject = {
 };
 export type GeoCandidate = {formatted_address: string; latitude: number; longitude: number; accuracy: string | null; place_id: string;
   municipality: string | null; state: string | null; types: string[]; warnings: string[]};
+
+export type PhotoPlace = "NA_OBRA" | "FORA_DA_OBRA" | "SEM_LOCALIZACAO" | "OBRA_SEM_LOCAL";
+export type DiaryPhoto = {
+  id: string; report_id: string | null; service_id: string | null; service: string | null; caption: string | null; url: string;
+  width: number; height: number; size_bytes: number; sha256: string; taken_at: string | null; taken_at_source: "EXIF" | "DEVICE" | null;
+  latitude: number | null; longitude: number | null; accuracy_m: number | null; location_source: "EXIF" | "DEVICE" | null;
+  place: PhotoPlace; distance_m: number | null; recorded_by: string; created_at: string;
+};
+export type Diary = {
+  project: {id: string; name: string; located: boolean}; services: {id: string; name: string}[];
+  days: {date: string; reports: {id: string; weather: string; summary: string; recorded_by: string}[]; photos: DiaryPhoto[]}[];
+};

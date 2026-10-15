@@ -3,7 +3,7 @@ import Link from "next/link";
 import {usePathname, useRouter} from "next/navigation";
 import {useState, type ReactNode} from "react";
 import {
-  BellRing, BrainCircuit, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
+  BellRing, BrainCircuit, Camera, Sun, Building2, CalendarClock, Upload, ClipboardList, FileBarChart, HardHat, LayoutDashboard, Map, Package, Scale, Search, Wallet,
 } from "lucide-react";
 import {SOURCE} from "../lib/portfolio";
 
@@ -26,13 +26,14 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/conciliacao", label: "Conciliação", icon: Scale},
   ]},
   {group: "Campo", items: [
+    {href: "/diario", label: "Diário de obra", icon: Camera},
     {href: "/atividades", label: "Atividades", icon: HardHat},
     {href: "/medicoes", label: "Medições", icon: ClipboardList},
     {href: "/materiais", label: "Materiais", icon: Package},
     {href: "/relatorios", label: "Relatórios", icon: FileBarChart},
   ]},
 ];
-const MOBILE = ["/simples", "/", "/inteligencia", "/obras", "/fopag"];
+const MOBILE = ["/simples", "/", "/obras", "/diario", "/fopag"];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/");
