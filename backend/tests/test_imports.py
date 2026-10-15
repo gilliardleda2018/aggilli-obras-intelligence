@@ -163,7 +163,7 @@ def test_manual_project_override_recovers_missing_project_only(env):
 
 def test_manual_project_override_does_not_bypass_invalid_amount(env):
     client, engine, ids, _ = env
-    csv_data = "Data;Obra;Fornecedor;Descrição;Valor\\n28/08/2026;Obra inexistente;Teste;Serviço;inválido\\n"
+    csv_data = "Data;Obra;Fornecedor;Descrição;Valor\n28/08/2026;Obra inexistente;Teste;Serviço;inválido\n"
     response = upload(client, csv_data.encode(), "invalid.csv")
     assert response.status_code == 201, response.text
     batch = response.json()
