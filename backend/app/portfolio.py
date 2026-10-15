@@ -187,8 +187,14 @@ def update_project(project_id: str, payload: ProjectDetails, subject: str = Depe
     end = changes.get("end_date", project.end_date)
     if start and end and end < start:
         raise HTTPException(status_code=422, detail="end_date must be >= start_date")
+    if "latitude" in changes or "longitude" in changes:  # typed coordinates: the organization's own data, confirmed by whoever saved them
+        from .geo import LocationUpdate, apply_location
+        apply_location(project, subject, LocationUpdate(latitude=changes.pop("latitude", None), longitude=changes.pop("longitude", None),
+                                                        source="MANUAL"))
+        changes["location"] = True
     for field, value in changes.items():
-        setattr(project, field, value)
+        if field != "location":
+            setattr(project, field, value)
     db.add(AuditEvent(organization_id=project.organization_id, subject_id=subject,
                       action="project.update:" + ",".join(sorted(changes))[:80], resource_id=project.id))
     db.commit()

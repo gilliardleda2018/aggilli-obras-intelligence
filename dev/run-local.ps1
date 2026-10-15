@@ -15,6 +15,14 @@ New-Item -ItemType Directory -Force $work | Out-Null
 $db = Join-Path $work "obras-dev.db"
 $py = Join-Path $backend ".venv\Scripts\python.exe"
 if (-not (Test-Path $py)) { python -m venv (Join-Path $backend ".venv"); & $py -m pip install -q -r (Join-Path $backend "requirements.txt") }
+# Google Maps keys (optional): .local\maps.env with GOOGLE_MAPS_SERVER_KEY=, GOOGLE_MAPS_BROWSER_KEY= and GOOGLE_MAPS_MAP_ID=.
+# The folder is ignored by git; never commit or paste the keys.
+$mapsEnv = Join-Path $work "maps.env"
+if (Test-Path $mapsEnv) {
+  foreach ($line in Get-Content $mapsEnv) {
+    if ($line -match "^\s*(GOOGLE_MAPS_[A-Z_]+)\s*=\s*(.*?)\s*$") { Set-Item "env:$($Matches[1])" $Matches[2] }
+  }
+}
 
 Push-Location $backend
 try {

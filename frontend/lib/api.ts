@@ -64,3 +64,13 @@ export type MaterialRow = {
 };
 export type MovementRow = {id: string; kind: "IN" | "OUT"; quantity: string; date: string; unit_cost: string | null; supplier: string | null;
   note: string | null; expense_id: string | null; recorded_by: string};
+
+export type GeoLocation = {latitude: number | null; longitude: number | null; source: "GEOCODED" | "MAP" | "FIELD" | "MANUAL" | null;
+  accuracy: string | null; place_id: string | null; confirmed_by: string | null; confirmed_at: string | null; refresh_due: boolean};
+export type MapProject = {
+  id: string; name: string; organization: string; status: string; municipality: string | null; address: string | null; responsible: string | null;
+  source: string | null; progress: number | null; finish_p50: string | null; probability_on_time: number | null; eac_p50: number | null;
+  budget: number | null; risk: {level: "alto" | "medio" | "baixo" | "sem_dados" | "concluida"; reasons: string[]}; location: GeoLocation;
+};
+export type GeoCandidate = {formatted_address: string; latitude: number; longitude: number; accuracy: string | null; place_id: string;
+  municipality: string | null; state: string | null; types: string[]; warnings: string[]};

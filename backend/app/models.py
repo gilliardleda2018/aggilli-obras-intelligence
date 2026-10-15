@@ -27,7 +27,8 @@ PROJECT_STATUSES = ("PLANNED", "IN_PROGRESS", "PAUSED", "DONE", "COST_POOL")
 class Project(Base):
     __tablename__ = "projects"
     __table_args__ = (CheckConstraint("status IN ('PLANNED','IN_PROGRESS','PAUSED','DONE','COST_POOL')",
-                                      name="ck_projects_status"),)
+                                      name="ck_projects_status"),
+                      CheckConstraint("location_source IN ('GEOCODED','MAP','FIELD','MANUAL')", name="ck_projects_location_source"))
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
     organization_id: Mapped[str] = mapped_column(ForeignKey("organizations.id"), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -44,6 +45,13 @@ class Project(Base):
     cost_center: Mapped[str | None] = mapped_column(String(60), nullable=True)
     latitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
     longitude: Mapped[Decimal | None] = mapped_column(Numeric(9,6), nullable=True)
+    # Provenance of the coordinates. GEOCODED values come from Google and may only be cached for 30 days (refreshed by
+    # place ID); MAP (pin placed by a person), FIELD (device GPS on site) and MANUAL are the organization's own data.
+    location_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    location_accuracy: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    location_place_id: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    location_confirmed_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    location_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
 class ServiceItem(Base):
