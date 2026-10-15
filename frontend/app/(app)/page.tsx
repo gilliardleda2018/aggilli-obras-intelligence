@@ -6,12 +6,18 @@ import {PageHead} from "../../components/app-shell";
 import {PrintButton} from "../../components/print-button";
 import {Badge, Callout, Card, Kpi, Meter} from "../../components/ui";
 import {getDataset, summarize} from "../../lib/data";
+import {apiGet, type PortfolioIntelligence} from "../../lib/api";
+import {CostSummary, Probability, ScheduleSummary} from "../../components/forecast-ui";
 import {compactMoney, money, pct, percent, reconciliation, sum} from "../../lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
 export default async function Overview() {
   const data = await getDataset();
+  const intel = data.source === "api" ? await apiGet<PortfolioIntelligence>("/intelligence/portfolio") : null;
+  const forecasts = (intel?.projects ?? []).filter(p => p.schedule.status === "ok" || p.cost.status === "ok")
+    .sort((a, b) => (a.schedule.probability_on_time ?? 1) - (b.schedule.probability_on_time ?? 1));
+  const awaiting = (intel?.projects ?? []).length - forecasts.length;
   const t = summarize(data);
   const projects = data.projects.filter(p => p.status !== "COST_POOL").sort((a, b) => b.weekly - a.weekly || b.open - a.open);
   const categories = Array.from(new Set(data.schedule.map(row => row.category)))
@@ -35,6 +41,20 @@ export default async function Overview() {
       <Kpi label="Saldo de contratos" value={compactMoney(t.contractBalance)}
            note={t.contractCount + " contratos · " + compactMoney(t.contractTotal) + " contratados"} icon={Wallet} tone="ok"/>
     </div>
+
+    {intel && <div style={{marginBottom: 18}}>
+      <Card flush title="Previsões — término e custo final" action={<Link className="link" href="/inteligencia">Inteligência<ArrowRight/></Link>}
+            subtitle={forecasts.length + " obras com previsão · " + awaiting + " aguardando medições e custos para prever"}>
+        {forecasts.slice(0, 5).map(row => <Link key={row.id} href={"/obras/" + row.id} className="intel-grid">
+          <div><b>{row.name}</b>{row.source?.startsWith("SINTÉTICO") && <> <Badge tone="warn">Sintético</Badge></>}
+            <div className="row-sub">avanço medido {row.schedule.current_progress.toLocaleString("pt-BR")}%</div></div>
+          <ScheduleSummary s={row.schedule}/><CostSummary c={row.cost}/><Probability value={row.schedule.probability_on_time}/>
+          <ChevronRight className="chev" size={18}/>
+        </Link>)}
+        {!forecasts.length && <p className="empty">Nenhuma obra com dados suficientes ainda. Cadastre serviços com pesos, aprove medições e
+          lance despesas com data — as previsões aparecem sozinhas.</p>}
+      </Card>
+    </div>}
 
     <div className="grid-main">
       <div className="stack">

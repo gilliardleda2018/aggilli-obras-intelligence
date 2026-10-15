@@ -23,3 +23,28 @@ export type MeasurementRow = {
   status: "PENDING" | "APPROVED" | "REJECTED"; recorded_by: string; measured_on: string | null; notes: string | null;
   created_at: string; decided_by: string | null; decided_at: string | null; decision_reason: string | null;
 };
+
+export type ScheduleForecast = {
+  status: "ok" | "dados_insuficientes" | "concluida" | "sem_produtividade"; missing?: string[] | null; model: string; version: string;
+  current_progress: number; contract_end: string | null; finish_p10?: string; finish_p50?: string; finish_p90?: string;
+  deterministic_finish?: string | null; probability_on_time?: number; delay_days_p50?: number;
+  productivity?: {average_pp_per_week: number; recent_pp_per_week: number}; simulations?: number;
+  earned_schedule?: {planned_progress_now: number; spi_t: number | null; ieac_finish: string | null; baseline: string};
+  backtest?: {predicted_last_progress: number; actual_last_progress: number; intervals_used: number};
+  critical_services?: {name: string; progress: number; weight: number}[]; factors?: string[];
+};
+export type CostForecast = {
+  status: "ok" | "dados_insuficientes"; missing?: string[] | null; model: string; version: string; actual_cost: number;
+  physical_progress: number; budget: number | null; earned_value?: number; planned_value?: number | null; cpi?: number; spi?: number | null;
+  eac_p50?: number; eac_low?: number; eac_high?: number; vac?: number; cost_per_point?: number; methods?: Record<string, number>; factors?: string[];
+};
+export type ProjectIntelligence = {
+  schedule: ScheduleForecast; cost: CostForecast;
+  series: {progress: {date: string; progress: number}[]; cost: {date: string; cost: number}[]; baseline: {date: string; progress: number}[]};
+  cash: ({week_start: string; scheduled: string} | {overdue_scheduled: string})[];
+  history: {kind: string; model: string; version: string; status: string; created_at: string; summary: Record<string, number | string | null>}[];
+};
+export type PortfolioIntelligence = {
+  projects: {id: string; name: string; status: string; source: string | null; schedule: ScheduleForecast; cost: CostForecast}[];
+  cash: ({week_start: string; scheduled: string} | {overdue_scheduled: string})[];
+};
