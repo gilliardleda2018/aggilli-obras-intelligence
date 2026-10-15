@@ -106,7 +106,10 @@ def _client():
     provider = (os.environ.get("DOC_AI_PROVIDER") or "off").lower()
     if provider == "off":
         raise ExtractionUnavailable("Leitura automática desligada")
-    import anthropic
+    try:
+        import anthropic
+    except ImportError as error:
+        raise ExtractionUnavailable("SDK de leitura automática não instalado") from error
     if provider == "aws":
         return anthropic.AnthropicAWS(timeout=60), ""
     if provider == "bedrock":
@@ -126,6 +129,8 @@ def _ask(client, model: str, image: dict) -> dict:
         raise ExtractionFailed("Serviço de leitura indisponível") from error
     except anthropic.APIStatusError as error:
         raise ExtractionFailed(f"Serviço de leitura respondeu {error.status_code}") from error
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ExtractionFailed("Configuração ou resposta incompatível com o SDK de leitura") from error
     if response.stop_reason in ("refusal", "max_tokens"):
         raise ExtractionFailed("Leitura não concluída")
     text = next((block.text for block in response.content if block.type == "text"), "")
@@ -150,7 +155,7 @@ def problems(fields: dict) -> list[str]:
     if fields.get("access_key") and not parse_access_key(fields["access_key"]):
         found.append("chave de acesso não confere")
     total = _money(fields.get("total_amount"))
-    lines = [_money(item.get("total")) for item in fields.get("items") or []]
+    lines = [_money(item.get("total")) for item in fields.get("items") or [] if isinstance(item, dict)]
     if total is None and fields.get("kind") != "OUTRO":
         found.append("valor total não encontrado")
     elif total is not None and lines and all(v is not None for v in lines) and abs(sum(lines) - total) > Decimal("0.05"):
