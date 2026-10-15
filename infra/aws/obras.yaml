@@ -191,7 +191,7 @@ Resources:
     UpdateReplacePolicy: Snapshot
     Properties:
       Engine: postgres
-      EngineVersion: "16"
+      EngineVersion: "17.11"
       DBInstanceClass: !Ref DbInstanceClass
       AllocatedStorage: "20"
       MaxAllocatedStorage: 100
