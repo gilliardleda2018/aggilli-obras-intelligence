@@ -41,3 +41,12 @@ Inspecionar apenas configuração IAM/workspace do OCR por métodos autorizados.
 - CI do commit `c4336e18234b6b7f5903a52e260d5fdd208becc2` confirmado como `success` em [38820331499](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38820331499) e [38820337666](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38820337666).
 - A verificação de presença de variável **não** prova permissão IAM, existência de workspace ou compatibilidade do modelo.
 - Sem leitura real de documento, sem ativação AWS, sem alterações de layout, migrações ou financeiro.
+
+## Etapa 2 — Reconciliação com outra instância (2026-10-16)
+**Responsável por esta frente:** OCR exclusivamente, branch `fix/ocr-integration-safe`, PR #19 Draft. Outra instância pode trabalhar em outras áreas; não assumir controle sobre suas alterações nem fazer merge na `main` sem coordenação.
+- CI do workflow no SHA `c8c001d5acef048efc94f3dd86d655ab7cd9b59e`: success nos runs 38821378028 e 38821383782.
+- ECS `obras-api:2` em us-east-1: `DOC_AI_PROVIDER=off`, `ANTHROPIC_AWS_WORKSPACE_ID` vazio.
+- Task role `obras-ApiTaskRole-dZoLRIqsBvt6`, política inline `arquivos-e-leitura` com `aws-external-anthropic:*` em `*`. É permissão declarada, não prova de workspace funcional.
+- Risco: revisar privilégio mínimo antes da ativação. Não mudar IAM, ECS, CSS, páginas, banco ou finanças nesta frente.
+- Sem inferência real executada; Etapa 3 ainda bloqueada por ausência de workspace comprovado.
+- A outra instância deve comunicar por PR/arquivo documental qualquer alteração compartilhada e evitar sobrescrever os arquivos OCR.
