@@ -101,7 +101,7 @@ def dashboard(project_id: str, subject: str = Depends(require_identity),
     total_weight = sum(Decimal(str(s["weight"])) for s in rows)
     physical = sum(Decimal(str(s["weight"]))*Decimal(str(s["progress"]))/100 for s in rows)
     return {"id":project.id,"name":project.name,"location":project.location,
-            "budget":str(project.budget),
+            "budget":None if project.budget is None else str(project.budget),
             "physical_progress":round(float(physical/total_weight*100),2) if total_weight else 0,
             "planning_complete":abs(total_weight-100)<Decimal("0.0001"),
             "stages":rows}

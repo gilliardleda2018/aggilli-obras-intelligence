@@ -8,3 +8,6 @@ __pycache__/
 !.env.example
 
 frontend/tsconfig.tsbuildinfo
+
+backend/.dev/
+*.db
