@@ -189,3 +189,30 @@ def test_multi_organization_requires_explicit_context(env):
     resolved = upload(client, CSV.encode("utf-8"), "explicit.csv", organization_id=other_id)
     assert resolved.status_code == 201, resolved.text
     assert resolved.json()["summary"]["valid"] == 0
+
+
+def test_override_cannot_move_expense_to_other_organization(env):
+    client, engine, ids, _ = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        foreign = Project(organization_id=other.id, name="Foreign Work", location="Other")
+        db.add(foreign)
+        db.commit()
+        foreign_id = foreign.id
+    batch = upload(client, CSV.encode("utf-8"), "foreign-override.csv").json()
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"9": {"project_id": foreign_id}}
+    })
+    assert result.status_code == 200, result.text
+    assert result.json()["created"] == 3
+    with Session(engine) as db:
+        assert db.scalar(select(Expense.id).where(Expense.project_id == foreign_id)) is None
+
+
+def test_explicit_foreign_organization_is_not_accessible(env):
+    client, engine, _, _ = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        other_id = other.id
+    response = upload(client, CSV.encode("utf-8"), "foreign-org.csv", organization_id=other_id)
+    assert response.status_code == 404
