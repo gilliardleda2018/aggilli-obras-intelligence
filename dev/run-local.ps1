@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File dev\run-local.ps1            # sobe tudo
 #   powershell -ExecutionPolicy Bypass -File dev\run-local.ps1 -Reset     # recria o banco local
 #
-# Depois abra http://localhost:3100/login e use "Entrar como usuÃ¡rio de desenvolvimento".
+# Depois abra http://localhost:3100/login e entre com e-mail e senha de um usuario cadastrado.
 param([switch]$Reset, [switch]$Wait, [int]$ApiPort = 8000, [int]$WebPort = 3100)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
@@ -33,13 +33,11 @@ try {
   & $py -m alembic upgrade head
   & $py -m scripts.import_tuntum --organization "Grupo MG (desenvolvimento)" --owner-subject dev-owner --apply
   & $py -m scripts.seed_demo --owner-subject dev-owner
-  $env:DEV_ACCESS_TOKEN = (& $py -m scripts.dev_identity token --sub dev-owner --hours 12 | Out-String).Trim()
   $api = Start-Process -PassThru -WindowStyle Hidden -FilePath $py -ArgumentList "-m", "uvicorn", "app.main:app", "--port", $ApiPort `
     -WorkingDirectory $backend -RedirectStandardOutput (Join-Path $work "api.log") -RedirectStandardError (Join-Path $work "api.err")
 } finally { Pop-Location }
 
 $env:SESSION_ENCRYPTION_KEY = -join ((1..32) | ForEach-Object { "{0:x2}" -f (Get-Random -Maximum 256) })
-$env:ALLOW_DEV_LOGIN = "1"
 $env:API_BASE_URL = "http://localhost:$ApiPort"
 Push-Location $frontend
 try {
