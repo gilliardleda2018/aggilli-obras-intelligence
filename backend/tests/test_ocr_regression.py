@@ -141,3 +141,56 @@ def test_textract_adapter_uses_existing_contract_without_network(monkeypatch):
     assert result["fields"]["supplier_name"] == "Materiais Exemplo"
     assert result["fields"]["total_amount"] == 1234.56
     assert result["key"] is None
+
+
+def test_textract_brazilian_receipt_fields_and_fractional_items(monkeypatch):
+    import sys
+    summary = [
+        ("VENDOR_NAME", "SUPERMERCADO EXEMPLO LTDA"),
+        ("TOTAL", "85,50"),
+        ("INVOICE_RECEIPT_DATE", "16/10/2026"),
+        ("INVOICE_RECEIPT_ID", "000123456"),
+        ("OTHER", "12.345.678/0001-90"),
+        ("OTHER", "Cartão de Débito"),
+    ]
+    lines = [("ARROZ TIPO 1 5KG", "1", "UN", "28,90"),
+             ("FEIJÃO CARIOCA 1KG", "2", "UN", "17,00"),
+             ("ÓLEO DE SOJA 900ML", "1", "UN", "7,90"),
+             ("LEITE INTEGRAL 1L", "3", "UN", "14,97"),
+             ("PÃO FRANCÊS KG", "0,5 KG", "", "8,45"),
+             ("BANANA PRATA KG", "1,2", "KG", "8,28")]
+    def field(t, v):
+        return {"Type": {"Text": t}, "ValueDetection": {"Text": v, "Confidence": 99}}
+    response = {"ExpenseDocuments": [{"SummaryFields": [field(t, v) for t, v in summary],
+        "LineItemGroups": [{"LineItems": [{"LineItemExpenseFields": [
+            field("ITEM", name), field("QUANTITY", qty), field("UNIT", unit), field("PRICE", price)
+        ]} for name, qty, unit, price in lines]}]}]}
+    class Client:
+        def analyze_expense(self, **kwargs):
+            assert kwargs["Document"]["Bytes"] == b"synthetic"
+            return response
+    monkeypatch.setitem(sys.modules, "boto3", SimpleNamespace(client=lambda *args, **kwargs: Client()))
+    monkeypatch.setenv("DOC_AI_PROVIDER", "textract")
+    result = ocr.extract(b"synthetic")
+    fields = result["fields"]
+    assert fields["supplier_name"] == "SUPERMERCADO EXEMPLO LTDA"
+    assert fields["supplier_cnpj"] == "12.345.678/0001-90"
+    assert fields["issue_date"] == "2026-10-16"
+    assert fields["document_number"] == "000123456"
+    assert fields["payment_method"] == "Cartão de Débito"
+    assert fields["total_amount"] == 85.50
+    assert len(fields["items"]) == 6
+    assert fields["items"][4]["quantity"] == 0.5
+    assert fields["items"][4]["unit"] == "KG"
+    assert sum(item["total"] for item in fields["items"]) == 85.50
+    assert result["problems"] == []
+
+
+def test_textract_invalid_date_is_not_invented():
+    assert ocr._textract_date("31/02/2026") is None
+    assert ocr._textract_date("16/10/2026") == "2026-10-16"
+
+
+def test_textract_invalid_money_is_not_invented():
+    assert ocr._textract_money("R$ 1.234,56") == 1234.56
+    assert ocr._textract_money("ilegível") is None
