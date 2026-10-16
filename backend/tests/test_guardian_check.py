@@ -29,3 +29,13 @@ def test_guardian_rejects_traversal_and_unrelated_critical_change():
 def test_guardian_cli_smoke():
     assert guardian.main([]) == 0
     assert guardian.main(["--changed-file", "backend/app/portfolio.py"]) == 1
+
+
+def test_file_scope_does_not_authorize_similarly_named_critical_path():
+    assert guardian.check_scope(["backend/Dockerfile"], ["backend/Docker"])
+    assert guardian.check_scope(["backend/Dockerfile"], ["backend/Dockerfile"]) == []
+
+
+def test_directory_scope_does_not_authorize_sibling():
+    assert guardian.check_scope(["frontend/app/login/page.tsx"], ["frontend/app/"]) == []
+    assert guardian.check_scope(["frontend/app/login/page.tsx"], ["frontend/ap"])

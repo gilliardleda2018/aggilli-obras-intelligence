@@ -57,7 +57,7 @@ def check_scope(changed, scope):
         if path.startswith("/") or ".." in Path(path).parts:
             errors.append("Caminho inválido: " + path)
         elif (path.startswith(CRITICAL_PREFIXES) or path in CRITICAL_FILES) and not any(
-            path == prefix.rstrip("/") or path.startswith(prefix) for prefix in scope
+            path.startswith(prefix) if prefix.endswith("/") else path == prefix for prefix in scope
         ):
             errors.append("Mudança crítica fora do escopo declarado: " + path)
     return errors
