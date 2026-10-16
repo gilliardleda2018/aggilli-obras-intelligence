@@ -24,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models import AuditEvent, Expense, FieldReport, LaborContract, Membership, Organization, Payment, Project
+from app.models import AuditEvent, Expense, FieldReport, LaborContract, Membership, Organization, Payment, Project, User
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "tuntum_2026-08-28.json"
 POOL = "Despesas comuns — a ratear"
@@ -176,11 +176,32 @@ def main(argv=None) -> int:
     parser.add_argument("--owner-subject", required=True, help="identity subject (sub) that receives OWNER")
     parser.add_argument("--actor", default="import:tuntum-2026-08-28")
     parser.add_argument("--apply", action="store_true", help="write to the database (default: dry run)")
+    parser.add_argument("--preserve-declared-divergences", action="store_true")
     args = parser.parse_args(argv)
     data = json.loads(DATA.read_text(encoding="utf-8"))
     with SessionLocal() as db:
-        report = run(db, args.organization, args.owner_subject, args.actor, data)
         if args.apply:
+            owner = db.scalar(select(User).where(User.id == args.owner_subject))
+            org = db.scalar(select(Organization).where(Organization.name == args.organization))
+            authorized = db.scalar(select(Membership.id).where(
+                Membership.organization_id == org.id,
+                Membership.subject_id == args.owner_subject,
+                Membership.role == "OWNER")) if org else None
+            if not owner or not owner.active or not authorized:
+                print("BLOQUEADO: proprietário ativo existente obrigatório")
+                return 2
+        report = run(db, args.organization, args.owner_subject, args.actor, data)
+        if args.apply and report.divergences and not args.preserve_declared_divergences:
+            db.rollback()
+            print("BLOQUEADO: divergências documentais requerem confirmação explícita")
+            return 2
+        if args.apply:
+            if report.divergences:
+                for index, issue in enumerate(report.divergences, 1):
+                    db.add(AuditEvent(organization_id=org.id, subject_id=args.owner_subject,
+                                      action="fopag.source_divergence_unresolved",
+                                      resource_id=f"tuntum-2026-08-28:{index}"))
+                print("DIVERGÊNCIAS PRESERVADAS E NÃO CONCILIADAS")
             db.commit()
         else:
             db.rollback()
