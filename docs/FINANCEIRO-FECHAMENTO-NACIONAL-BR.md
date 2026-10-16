@@ -2,11 +2,9 @@
 
 Data-base: 16/10/2026. Status: **contrato de produto aprovado para implementação técnica, NÃO homologação de funcionalidades inexistentes**. Sem dependência de Stripe. Compatível com qualquer UF; parâmetros municipais/fiscais devem ser resolvidos por município, atividade, regime e vigência, nunca por alíquota fixa nacional.
 
-## Referências de mercado e regras adotadas
+## Regras próprias do Aggilli Obras e fundamentos normativos
 
-- Sienge: contrato → medição → aprovação → documento fiscal → abatimento de adiantamento → título a pagar/receber → autorização; aditivos, cauções, impostos e faturamento direto. Fonte: https://ajuda.sienge.com.br/support/solutions/articles/153000258408-fluxo-do-sistema-de-contratos-e-medi%C3%A7%C3%B5es
-- TOTVS Construção: orçamento e alçadas de compras, contrato, medição, backoffice, faturamento direto e reserva de saldo, separando comprometido de realizado. Fonte: https://produtos.totvs.com/ficha-tecnica/tudo-sobre-o-totvs-construcao-obras-e-projetos/
-- Sienge: contas a pagar/receber, extratos, NF e fechamento fiscal integrados. Fonte: https://sienge.com.br/sienge-plataforma/
+- Fluxo próprio Aggilli Obras: contrato → medição → aprovação → documento fiscal → adiantamentos/retencões → título → autorização → liquidação e conciliação.
 - Banco Central: API Pix para cobrança, verificação de liquidação e conciliação, sem confundir iniciação com liquidação. Fonte: https://www.bcb.gov.br/estabilidadefinanceira/pix-cobranca
 - Receita Federal: retenções previdenciárias podem aplicar-se à cessão de mão de obra e empreitada conforme enquadramento; não calcular 11% indiscriminadamente. Fonte: https://www.gov.br/receitafederal/pt-br/assuntos/orientacao-tributaria/tributos/contribuicoes-previdenciarias-pf
 
@@ -67,3 +65,7 @@ CI verde no SHA final; testes PostgreSQL transacionais e concorrentes; isolament
 
 ## Coordenação
 PR #19 OCR pertence a outra frente. PR #22 bloqueia FOPAG inconsistente; PR #23 Stripe; PR #24 Full; PR #25 conciliação read-only. Mudanças em arquivos compartilhados requerem revisão de conflitos e comunicação via PR.
+
+## Implementação incremental rastreável
+
+O módulo `app/financial_closing_rules.py` calcula liquidação parcial, retenções e adiantamentos com Decimal e impede fechamento de competência com pendências. Os testes estão em `tests/test_financial_closing_rules.py`. **É núcleo puro, não persistência de fechamento nem interface pronta.** Manter FN01–FN07 abertos até migrações, APIs, autorização, conciliação bancária, UI e testes E2E concluídos.
