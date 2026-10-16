@@ -105,3 +105,20 @@ def test_sdk_provider_symbols_when_installed():
     assert callable(getattr(anthropic, "AnthropicAWS", None)), "AnthropicAWS missing from installed SDK"
     assert callable(getattr(anthropic, "AnthropicBedrockMantle", None)), "AnthropicBedrockMantle missing from installed SDK"
     assert callable(getattr(anthropic, "Anthropic", None)), "Anthropic client missing from installed SDK"
+
+
+def test_sdk_aws_constructor_signature():
+    """Ensure AWS client exposes the timeout argument used by OCR without network calls."""
+    import inspect
+    import anthropic
+    signature = inspect.signature(anthropic.AnthropicAWS)
+    assert "timeout" in signature.parameters
+
+
+def test_sdk_bedrock_constructor_signature():
+    """Check Bedrock Mantle constructor contract without invoking a model."""
+    import inspect
+    import anthropic
+    signature = inspect.signature(anthropic.AnthropicBedrockMantle)
+    assert "aws_region" in signature.parameters
+    assert "timeout" in signature.parameters
