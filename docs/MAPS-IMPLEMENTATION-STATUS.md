@@ -37,7 +37,12 @@ Responsável: Claude (branch `claude/maps-fix`). Frente OCR (PR #19, GPT-6) não
    sem tratamento de falha de carregamento e com a data anterior exibida durante a troca de ponto.
 4. **Uso de propriedade descontinuada** (`PinElement.element`) no canal `weekly`, que pode deixar de funcionar.
 
-Produção: não foi possível comprovar a configuração real (ver §7).
+5. **Causa da falha em produção (comprovada em 2026-10-16, com login do usuário)**: em
+   `https://emobras.aggillintelligence.com.br/mapa` o Google responde `InvalidKeyMapError` / `InvalidKey` e mostra
+   "Ops! Algo deu errado". A chave enviada ao navegador tem 9 caracteres e é exatamente o texto provisório `PREENCHER`
+   do modelo `infra/aws/obras.yaml` (`AppSecret`). Ou seja, `GOOGLE_MAPS_BROWSER_KEY` **nunca foi preenchida** no Secrets
+   Manager. Pelo mesmo modelo, `GOOGLE_MAPS_SERVER_KEY` provavelmente também está como `PREENCHER` (geocodificação falharia
+   com `REQUEST_DENIED` → 502 "O serviço de geocodificação do Google não respondeu"). Não é defeito de código.
 
 ## 4. Arquivos alterados
 
@@ -66,9 +71,9 @@ Build de produção local (`next build` + `next start`), chaves reais, navegador
 
 ## 7. Riscos e pendências
 
-- **Produção não verificada**: o painel exige login (Descope) e a leitura dos segredos no Secrets Manager foi bloqueada
-  pelas regras de segurança da sessão. Pendente com o usuário: confirmar que `GOOGLE_MAPS_BROWSER_KEY`/`SERVER_KEY` não
-  estão como `PREENCHER`, que a chave do navegador aceita o referenciador `https://emobras.aggillintelligence.com.br/*`,
+- **Ação do usuário (produção)**: no Secrets Manager (`us-east-1`, segredo do site/API da pilha `obras`), substituir
+  `PREENCHER` por chaves reais em `GOOGLE_MAPS_BROWSER_KEY` e `GOOGLE_MAPS_SERVER_KEY` e forçar novo deploy dos serviços
+  web e api no ECS (os segredos só são lidos na partida da tarefa). Conferir também que a chave do navegador aceita o referenciador `https://emobras.aggillintelligence.com.br/*`,
   que a chave do servidor (restrita por IP) aceita o IP de saída do NAT/Fargate, e preencher `GoogleMapsMapId`
   (sem ele a produção usa `DEMO_MAP_ID`, só para desenvolvimento).
 - `marker.addListener("click")` gera aviso de descontinuação; a troca por `gmp-click` aguarda tipos atualizados
