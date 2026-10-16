@@ -122,3 +122,22 @@ def test_sdk_bedrock_constructor_signature():
     signature = inspect.signature(anthropic.AnthropicBedrockMantle)
     assert "aws_region" in signature.parameters
     assert "timeout" in signature.parameters
+
+
+def test_textract_adapter_uses_existing_contract_without_network(monkeypatch):
+    import sys
+    fake_response = {"ExpenseDocuments": [{"SummaryFields": [
+        {"Type": {"Text": "VENDOR_NAME"}, "ValueDetection": {"Text": "Materiais Exemplo", "Confidence": 99}},
+        {"Type": {"Text": "TOTAL"}, "ValueDetection": {"Text": "R$ 1.234,56", "Confidence": 99}}
+    ], "LineItemGroups": []}]}
+    class Client:
+        def analyze_expense(self, **kwargs):
+            assert kwargs["Document"]["Bytes"] == b"synthetic"
+            return fake_response
+    monkeypatch.setitem(sys.modules, "boto3", SimpleNamespace(client=lambda *args, **kwargs: Client()))
+    monkeypatch.setenv("DOC_AI_PROVIDER", "textract")
+    result = ocr.extract(b"synthetic")
+    assert result["engine"] == "amazon-textract-analyze-expense"
+    assert result["fields"]["supplier_name"] == "Materiais Exemplo"
+    assert result["fields"]["total_amount"] == 1234.56
+    assert result["key"] is None
