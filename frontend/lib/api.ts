@@ -121,3 +121,13 @@ export type EngineeringAdvice = {
   project_id: string; evaluated_on: string;
   findings: EngineeringFinding[]; writes_performed: false;
 };
+
+
+export type FinancialFinding = {
+  code: string; severity: "high" | "warning" | "info"; project_id: string;
+  message: string; recommended_action: string; evidence: Record<string, unknown>;
+};
+export type FinancialDiagnosis = {
+  agent: "financeiro-ia"; version: string; mode: "advisory";
+  projects: number; findings: FinancialFinding[]; writes_performed: false;
+};
