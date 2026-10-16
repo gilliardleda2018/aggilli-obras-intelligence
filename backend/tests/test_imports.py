@@ -216,3 +216,26 @@ def test_explicit_foreign_organization_is_not_accessible(env):
         other_id = other.id
     response = upload(client, CSV.encode("utf-8"), "foreign-org.csv", organization_id=other_id)
     assert response.status_code == 404
+
+
+def test_fopag_contract_reconciliation_reports_without_changing_source():
+    from scripts.import_tuntum import DATA, run
+    import json
+    from app.models import Organization
+    from sqlalchemy.orm import Session
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import StaticPool
+    source = json.loads(DATA.read_text(encoding="utf-8"))
+    original = json.dumps(source, sort_keys=True)
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db:
+            report = run(db, "Grupo MG", "owner-test", "audit-test", source)
+            assert any("Raimundo BR" in issue for issue in report.divergences)
+            assert any("Cabiludo" in issue for issue in report.divergences)
+            assert any("contracts_total" in issue for issue in report.divergences)
+            assert json.dumps(source, sort_keys=True) == original
+            db.rollback()
+    finally:
+        engine.dispose()
