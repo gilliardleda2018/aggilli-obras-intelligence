@@ -71,3 +71,11 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - `iam:SimulatePrincipalPolicy` para `textract:AnalyzeExpense`, recurso `*`, retornou `allowed`.
 - Permissão de política validada, mas **nenhuma leitura real foi executada**. Ainda falta validar runtime e imagem sintética em ambiente isolado.
 - Não alterar produção ou ativar `DOC_AI_PROVIDER=textract` antes de teste real e CI final.
+
+## Homologação real Textract — cupom sintético (16/10/2026)
+- Execução relatada pelo operador no CloudShell da conta AWS correta, em `us-east-1`, usando `boto3.client("textract").analyze_expense(Document={"Bytes": ...})`.
+- `ExpenseDocuments`: 1. `VENDOR_NAME`: SUPERMERCADO EXEMPLO LTDA (100%); `TOTAL`: 85,50 (98,7%); `INVOICE_RECEIPT_DATE`: 16/10/2026 (96,6%); `INVOICE_RECEIPT_ID`: 000123456 (83,1%). Seis itens retornados.
+- Totais dos itens: 28,90 + 17,00 + 7,90 + 14,97 + 8,45 + 8,28 = **85,50**. Quantidades incluem 0,5 KG e 1,2 KG; exigem interpretação e testes adicionais.
+- CNPJ e forma de pagamento apareceram em campos `OTHER`, não no mapeamento atual; não declarar preenchimento automático desses campos.
+- **Prova de serviço real concluída**, mas **não** é homologação ponta a ponta do adaptador ou do lançamento; o OCR permanece desativado em produção.
+- Próximo gate: corrigir somente mapeamento do adaptador Textract, testar com fixture saneada, CI verde, revisão de segurança e homologação E2E sem escrita financeira.
