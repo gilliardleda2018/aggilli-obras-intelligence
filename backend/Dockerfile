@@ -12,6 +12,7 @@ COPY alembic.ini .
 COPY migrations ./migrations
 COPY app ./app
 COPY scripts ./scripts
+COPY data ./data
 
 RUN useradd --create-home --uid 10001 api
 USER api
