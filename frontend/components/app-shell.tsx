@@ -71,10 +71,14 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
   const mustChange = Boolean(account?.mustChange) && pathname !== "/conta";
   useEffect(() => { if (mustChange) router.replace("/conta?trocar=1"); }, [mustChange, router]);
   const [menu, setMenu] = useState(false);
-  useEffect(() => setMenu(false), [pathname]);  // close the phone drawer after navigating
+  const [hover, setHover] = useState(false);  // drawer opened by the mouse at the left edge: closes when the mouse leaves it
+  useEffect(() => { setMenu(false); setHover(false); }, [pathname]);  // close the drawer after navigating
+  const open = () => { setMenu(true); setHover(true); };
   return <div className="app">
     {menu && <div className="menu-backdrop" onClick={() => setMenu(false)} aria-hidden/>}
-    <aside className={"sidebar" + (menu ? " open" : "")} aria-label="Navegação principal" id="menu-principal">
+    {!menu && <div className="menu-edge" onMouseEnter={open} aria-hidden/>}
+    <aside className={"sidebar" + (menu ? " open" : "")} aria-label="Navegação principal" id="menu-principal"
+           onMouseLeave={() => { if (hover) { setMenu(false); setHover(false); } }}>
       <button type="button" className="menu-close" onClick={() => setMenu(false)} aria-label="Fechar menu"><X/></button>
       <Link href="/" className="brand brand-logo" aria-label="Aggilli Obras Intelligence — início">
         <img src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
@@ -96,6 +100,8 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
     </aside>
     <div className="main">
       <header className="topbar">
+        <button type="button" className="btn menu-toggle" onClick={() => { setHover(false); setMenu(value => !value); }} aria-expanded={menu}
+                aria-controls="menu-principal" aria-label="Abrir menu"><MenuIcon/></button>
         <form className="search" role="search" onSubmit={event => {
           event.preventDefault();
           if (query.trim()) router.push("/fopag?q=" + encodeURIComponent(query.trim()));
@@ -121,7 +127,7 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
         const Icon = item.icon;
         return <Link key={href} href={href} className={isActive(pathname, href) ? "active" : ""}><Icon/>{item.label.split(" ")[0]}</Link>;
       })}
-      <button type="button" className={menu ? "active" : ""} onClick={() => setMenu(open => !open)} aria-expanded={menu}
+      <button type="button" className={menu ? "active" : ""} onClick={() => { setHover(false); setMenu(value => !value); }} aria-expanded={menu}
               aria-controls="menu-principal"><MenuIcon/>Menu</button>
     </nav>
   </div>;
