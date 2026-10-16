@@ -28,7 +28,7 @@ def test_exact_path_and_prefix_are_distinct():
 
 
 def test_exact_file_does_not_allow_sibling_with_same_prefix():
-    assert scope.evaluate([".github/workflows/guardian.yml.backup"], [".github/workflows/guardian.yml"]) == []  # noncritical sibling
+    assert scope.evaluate([".github/workflows/guardian.yml.backup"], [".github/workflows/guardian.yml"])  # critical sibling must be rejected
     assert scope.evaluate(["backend/app/security.py"], ["backend/app/sec"])
 
 
