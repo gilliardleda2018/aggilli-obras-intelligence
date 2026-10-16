@@ -174,3 +174,18 @@ def test_manual_project_override_does_not_bypass_invalid_amount(env):
     assert result.json()["created"] == 0
     with Session(engine) as db:
         assert db.scalar(select(func.count(Expense.id))) == 0
+
+
+def test_multi_organization_requires_explicit_context(env):
+    client, engine, ids, who = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        db.add(Membership(organization_id=other.id, subject_id="darlan", role="ADMIN"))
+        db.commit()
+        other_id = other.id
+    ambiguous = upload(client, CSV.encode("utf-8"), "ambiguous.csv")
+    assert ambiguous.status_code == 422
+    assert "organização" in ambiguous.json()["detail"]
+    resolved = upload(client, CSV.encode("utf-8"), "explicit.csv", organization_id=other_id)
+    assert resolved.status_code == 201, resolved.text
+    assert resolved.json()["summary"]["valid"] == 0
