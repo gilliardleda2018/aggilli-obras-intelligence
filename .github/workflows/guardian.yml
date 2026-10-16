@@ -12,8 +12,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Validate Guardian skill integrity
         run: python tools/guardian/check.py
+      - name: Validate declared PR scope
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python tools/guardian/pr_scope.py --base "$BASE_SHA" --scope-file .guardian/scope.json
