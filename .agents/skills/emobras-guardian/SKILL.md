@@ -59,3 +59,6 @@ Apresentar somente fatos verificados: **implementado**, **testado**, **integrado
 ## Materiais de apoio
 - [Checklist de aceitação](references/checklist.md)
 - [Modelo de checkpoint](references/handoff.md)
+- [Coordenação entre instâncias](references/parallel-agents.md)
+- [Gates de produção](references/production-gates.md)
+- [Manual de operação](../../../docs/GUARDIAN-OPERACAO-AGENTES.md)
