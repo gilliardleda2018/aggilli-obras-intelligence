@@ -157,6 +157,16 @@ def run(db: Session, organization: str, owner: str, actor: str, data: dict) -> R
              "contracts_advance": sum(dec(c["advance"]) for c in data["contracts"])}
     report.divergences = [f"{key}: linha TOTAL do documento {DOCUMENTED[key]} x soma das linhas {found[key]}" for key in DOCUMENTED
                           if DOCUMENTED[key] != found[key]]
+    # Preserve source values; flag contract-level inconsistencies for manual reconciliation.
+    for contract in data["contracts"]:
+        if contract.get("total") is None:
+            continue
+        expected = dec(contract["total"]) - dec(contract["advance"])
+        stated = dec(contract["balance"])
+        if expected != stated:
+            report.divergences.append(
+                f"contrato {contract['name']} ({contract['project']}): saldo informado {stated} x total menos adiantamento {expected}"
+            )
     return report
 
 

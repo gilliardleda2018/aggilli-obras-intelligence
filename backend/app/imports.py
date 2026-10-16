@@ -33,6 +33,8 @@ def _organization(db: Session, subject: str, organization_id: str | None) -> str
         return organization_id
     if not orgs:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if len(orgs) > 1:
+        raise HTTPException(status_code=422, detail="Selecione a organização para importar a planilha")
     return orgs[0]
 
 
@@ -184,7 +186,15 @@ def commit(batch_id: str, payload: Commit, subject: str = Depends(require_identi
     for row in json.loads(batch.rows):
         override = payload.overrides.get(row["line"], {})
         pid = override.get("project_id") or row.get("project_id")
-        if not row["ok"] or row.get("duplicate") or pid not in projects:
+        # A manual project selection resolves only the missing-project issue.
+        # All other validation failures remain blocking.
+        blocking = [issue for issue in row.get("issues", [])
+                    if not issue.startswith("sem data") and
+                    not (pid in projects and issue.startswith("obra não identificada"))]
+        if blocking or row.get("duplicate") or pid not in projects:
+            skipped += 1
+            continue
+        if batch.kind == "expenses" and (not row.get("amount") or Decimal(row["amount"]) <= 0):
             skipped += 1
             continue
         ref = f"planilha:{batch.file_hash[:16]}:{row['line']}"

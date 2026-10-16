@@ -47,5 +47,5 @@ def list_projects(subject_id: str = Depends(require_identity), db: Session = Dep
     projects = db.scalars(select(Project).join(Membership,
         Project.organization_id == Membership.organization_id).where(
         Membership.subject_id == subject_id)).all()
-    return [{"id": p.id, "name": p.name, "location": p.location,
+    return [{"id": p.id, "organization_id": p.organization_id, "name": p.name, "location": p.location,
              "budget": None if p.budget is None else str(p.budget)} for p in projects]

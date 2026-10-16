@@ -142,3 +142,100 @@ def test_permissions_and_limits(env):
     who["sub"] = "outsider"
     assert client.get(f"/api/v1/imports/{batch}").status_code == 404
     assert client.post(f"/api/v1/imports/{batch}/commit", json={}).status_code == 404
+
+
+def test_manual_project_override_recovers_missing_project_only(env):
+    client, engine, ids, _ = env
+    response = upload(client, CSV.encode("utf-8"), "override.csv")
+    assert response.status_code == 201
+    batch = response.json()
+    missing = next(row for row in batch["rows"] if row["line"] == 9)
+    assert not missing["ok"] and missing["project_id"] is None
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"9": {"project_id": ids["MG Tabocal"]}}
+    })
+    assert result.status_code == 200, result.text
+    assert result.json()["created"] == 4
+    with Session(engine) as db:
+        expense = db.scalar(select(Expense).where(Expense.supplier == "Fulano"))
+        assert expense is not None and expense.project_id == ids["MG Tabocal"]
+
+
+def test_manual_project_override_does_not_bypass_invalid_amount(env):
+    client, engine, ids, _ = env
+    csv_data = "Data;Obra;Fornecedor;Descrição;Valor\n28/08/2026;Obra inexistente;Teste;Serviço;inválido\n"
+    response = upload(client, csv_data.encode(), "invalid.csv")
+    assert response.status_code == 201, response.text
+    batch = response.json()
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"2": {"project_id": ids["MG Tabocal"]}}
+    })
+    assert result.status_code == 200
+    assert result.json()["created"] == 0
+    with Session(engine) as db:
+        assert db.scalar(select(func.count(Expense.id))) == 0
+
+
+def test_multi_organization_requires_explicit_context(env):
+    client, engine, ids, who = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        db.add(Membership(organization_id=other.id, subject_id="darlan", role="ADMIN"))
+        db.commit()
+        other_id = other.id
+    ambiguous = upload(client, CSV.encode("utf-8"), "ambiguous.csv")
+    assert ambiguous.status_code == 422
+    assert "organização" in ambiguous.json()["detail"]
+    resolved = upload(client, CSV.encode("utf-8"), "explicit.csv", organization_id=other_id)
+    assert resolved.status_code == 201, resolved.text
+    assert resolved.json()["summary"]["valid"] == 0
+
+
+def test_override_cannot_move_expense_to_other_organization(env):
+    client, engine, ids, _ = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        foreign = Project(organization_id=other.id, name="Foreign Work", location="Other")
+        db.add(foreign)
+        db.commit()
+        foreign_id = foreign.id
+    batch = upload(client, CSV.encode("utf-8"), "foreign-override.csv").json()
+    result = client.post(f"/api/v1/imports/{batch['id']}/commit", json={
+        "overrides": {"9": {"project_id": foreign_id}}
+    })
+    assert result.status_code == 200, result.text
+    assert result.json()["created"] == 3
+    with Session(engine) as db:
+        assert db.scalar(select(Expense.id).where(Expense.project_id == foreign_id)) is None
+
+
+def test_explicit_foreign_organization_is_not_accessible(env):
+    client, engine, _, _ = env
+    with Session(engine) as db:
+        other = db.scalar(select(Organization).where(Organization.name == "Outra"))
+        other_id = other.id
+    response = upload(client, CSV.encode("utf-8"), "foreign-org.csv", organization_id=other_id)
+    assert response.status_code == 404
+
+
+def test_fopag_contract_reconciliation_reports_without_changing_source():
+    from scripts.import_tuntum import DATA, run
+    import json
+    from app.models import Organization
+    from sqlalchemy.orm import Session
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import StaticPool
+    source = json.loads(DATA.read_text(encoding="utf-8"))
+    original = json.dumps(source, sort_keys=True)
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as db:
+            report = run(db, "Grupo MG", "owner-test", "audit-test", source)
+            assert any("Raimundo BR" in issue for issue in report.divergences)
+            assert any("Cabiludo" in issue for issue in report.divergences)
+            assert any("contracts_total" in issue for issue in report.divergences)
+            assert json.dumps(source, sort_keys=True) == original
+            db.rollback()
+    finally:
+        engine.dispose()
