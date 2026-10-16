@@ -1,3 +1,4 @@
+from decimal import Decimal
 import pytest
 from app.full_finance_policy import (
     FinancialEligibility, Operation, PaymentGateError, Plan, require_payment_eligibility
@@ -40,4 +41,4 @@ def test_invalid_amounts_blocked(amount):
 
 def test_valid_amount_is_decimal_and_no_money_is_moved():
     assert require_payment_eligibility(Operation.RECEIVE, "15.5", eligible()).as_tuple().exponent == -2
-    assert require_payment_eligibility(Operation.SUPPLIER_PAYOUT, "99.99", eligible()) == 99.99
+    assert require_payment_eligibility(Operation.SUPPLIER_PAYOUT, "99.99", eligible()) == Decimal("99.99")
