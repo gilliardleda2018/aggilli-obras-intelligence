@@ -168,8 +168,65 @@ def problems(fields: dict) -> list[str]:
     return found
 
 
+
+def _textract_extract(data: bytes) -> dict:
+    """AnalyzeExpense adapter; returns the existing OCR contract without changing UI or finance."""
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+    try:
+        response = boto3.client("textract", region_name=os.environ.get("AWS_REGION") or "us-east-1").analyze_expense(
+            Document={"Bytes": data}
+        )
+    except (BotoCoreError, ClientError) as error:
+        raise ExtractionFailed("Serviço Textract indisponível ou sem autorização") from error
+
+    fields = {"kind": "NOTA_FISCAL", "supplier_name": None, "supplier_cnpj": None,
+              "document_number": None, "access_key": None, "issue_date": None,
+              "total_amount": None, "items": [], "payment_method": None,
+              "site_reference": None, "confidence": "low", "issues": []}
+    mapping = {"VENDOR_NAME": "supplier_name", "VENDOR_VAT_NUMBER": "supplier_cnpj",
+               "INVOICE_RECEIPT_ID": "document_number", "INVOICE_RECEIPT_DATE": "issue_date",
+               "TOTAL": "total_amount"}
+    confidences = []
+    for doc in response.get("ExpenseDocuments", []):
+        for item in doc.get("SummaryFields", []):
+            typ = item.get("Type", {}).get("Text", "")
+            value = item.get("ValueDetection", {})
+            target = mapping.get(typ)
+            if not target or not value.get("Text"):
+                continue
+            confidences.append(float(value.get("Confidence", 0)))
+            raw = value["Text"].strip()
+            if target == "total_amount":
+                cleaned = re.sub(r"[^0-9,.-]", "", raw)
+                if "," in cleaned and "." in cleaned:
+                    cleaned = cleaned.replace(".", "").replace(",", ".") if cleaned.rfind(",") > cleaned.rfind(".") else cleaned.replace(",", "")
+                elif "," in cleaned:
+                    cleaned = cleaned.replace(",", ".")
+                try:
+                    fields[target] = float(Decimal(cleaned))
+                except (InvalidOperation, ValueError):
+                    fields["issues"].append("valor total não interpretado")
+            else:
+                fields[target] = raw
+        for group in doc.get("LineItemGroups", []):
+            for line in group.get("LineItems", []):
+                vals = {v.get("Type", {}).get("Text"): v.get("ValueDetection", {}).get("Text")
+                        for v in line.get("LineItemExpenseFields", [])}
+                if vals.get("ITEM"):
+                    fields["items"].append({"description": vals["ITEM"], "quantity": None,
+                                            "unit": None, "total": None})
+    if not response.get("ExpenseDocuments"):
+        fields["issues"].append("documento sem campos reconhecidos")
+    fields["confidence"] = "medium" if confidences and min(confidences) >= 85 else "low"
+    found = problems(fields)
+    return {"engine": "amazon-textract-analyze-expense", "fields": fields,
+            "key": None, "problems": found}
+
 def extract(data: bytes) -> dict:
     """Fields read from the picture plus which model produced them and what still looks wrong."""
+    if (os.environ.get("DOC_AI_PROVIDER") or "off").lower() == "textract":
+        return _textract_extract(data)
     client, prefix = _client()
     image = _image_block(data)
     model = os.environ.get("DOC_AI_MODEL") or "claude-haiku-5-5"
