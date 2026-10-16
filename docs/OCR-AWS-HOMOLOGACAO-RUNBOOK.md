@@ -57,3 +57,11 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - Commit `0b1d49809c33bcdfd6f2b7d1f69311df4ff02a51` testa parâmetros `timeout` de `AnthropicAWS` e `aws_region`/`timeout` de `AnthropicBedrockMantle` via `inspect.signature`.
 - GitHub Actions success em [38830421524](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38830421524) e [38830424753](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38830424753).
 - Esta validação é estática: não prova autenticação, assinatura de `messages.create`, resposta estruturada nem leitura real.
+
+## Alternativa autorizada — Amazon Textract (2026-10-16)
+- Usuário autorizou adotar Textract em vez de Claude Platform on AWS, sem modificar layout, dados ou produção.
+- Commits `764c79e46118818bbcb81289943f374f0a5eb0eb` (adaptador opcional) e `bde82451b8cb7cea697ad0c541ed46ab8546e3c0` (teste sintético mockado).
+- CI no SHA `bde82451b8cb7cea697ad0c541ed46ab8546e3c0`: success em [38833512053](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38833512053) e [38833518238](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38833518238).
+- `DOC_AI_PROVIDER=textract` seleciona `AnalyzeExpense`, preservando os provedores existentes e a confirmação humana.
+- Simulação IAM da role ECS para `textract:AnalyzeExpense` retornou `implicitDeny`. A permissão precisa ser concedida de forma restrita antes de executar OCR real. Nenhuma permissão foi alterada.
+- Limitações atuais: mapeamento de campos Textract é parcial; OCR de comprovantes e orçamentos não pode ser declarado equivalente ao Claude sem testes de documentos representativos. Não promover produção antes de homologação real.
