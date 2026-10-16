@@ -169,8 +169,43 @@ def problems(fields: dict) -> list[str]:
 
 
 
+def _textract_money(raw: str | None) -> float | None:
+    """Convert BRL/US money strings without silently accepting malformed values."""
+    if not raw:
+        return None
+    value = re.sub(r"[^0-9,.-]", "", raw.strip())
+    if not value or value.count("-") or value.count(",") > 1:
+        return None
+    if "," in value and "." in value:
+        value = value.replace(".", "").replace(",", ".") if value.rfind(",") > value.rfind(".") else value.replace(",", "")
+    elif "," in value:
+        value = value.replace(",", ".")
+    try:
+        amount = Decimal(value)
+        return float(amount) if amount.is_finite() and amount >= 0 else None
+    except InvalidOperation:
+        return None
+
+
+def _textract_date(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    from datetime import date
+    value = raw.strip()
+    try:
+        if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value):
+            return date.fromisoformat(value).isoformat()
+        match = re.fullmatch(r"(\\d{1,2})/(\\d{1,2})/(\\d{4})", value)
+        if match:
+            day, month, year = map(int, match.groups())
+            return date(year, month, day).isoformat()
+    except ValueError:
+        pass
+    return None
+
+
 def _textract_extract(data: bytes) -> dict:
-    """AnalyzeExpense adapter; returns the existing OCR contract without changing UI or finance."""
+    """AnalyzeExpense to existing OCR contract. Suggestions only; never posts expenses."""
     import boto3
     from botocore.exceptions import BotoCoreError, ClientError
     try:
@@ -184,44 +219,60 @@ def _textract_extract(data: bytes) -> dict:
               "document_number": None, "access_key": None, "issue_date": None,
               "total_amount": None, "items": [], "payment_method": None,
               "site_reference": None, "confidence": "low", "issues": []}
-    mapping = {"VENDOR_NAME": "supplier_name", "VENDOR_VAT_NUMBER": "supplier_cnpj",
-               "INVOICE_RECEIPT_ID": "document_number", "INVOICE_RECEIPT_DATE": "issue_date",
-               "TOTAL": "total_amount"}
+    mapping = {"VENDOR_NAME": "supplier_name", "NAME": "supplier_name",
+               "VENDOR_VAT_NUMBER": "supplier_cnpj", "INVOICE_RECEIPT_ID": "document_number",
+               "INVOICE_RECEIPT_DATE": "issue_date", "TOTAL": "total_amount"}
     confidences = []
     for doc in response.get("ExpenseDocuments", []):
         for item in doc.get("SummaryFields", []):
             typ = item.get("Type", {}).get("Text", "")
             value = item.get("ValueDetection", {})
-            target = mapping.get(typ)
-            if not target or not value.get("Text"):
+            raw = value.get("Text", "").strip()
+            if not raw:
                 continue
-            confidences.append(float(value.get("Confidence", 0)))
-            raw = value["Text"].strip()
-            if target == "total_amount":
-                cleaned = re.sub(r"[^0-9,.-]", "", raw)
-                if "," in cleaned and "." in cleaned:
-                    cleaned = cleaned.replace(".", "").replace(",", ".") if cleaned.rfind(",") > cleaned.rfind(".") else cleaned.replace(",", "")
-                elif "," in cleaned:
-                    cleaned = cleaned.replace(",", ".")
-                try:
-                    fields[target] = float(Decimal(cleaned))
-                except (InvalidOperation, ValueError):
-                    fields["issues"].append("valor total não interpretado")
-            else:
-                fields[target] = raw
+            target = mapping.get(typ)
+            if target:
+                if fields[target] is not None:
+                    continue
+                confidences.append(float(value.get("Confidence", 0)))
+                if target == "total_amount":
+                    fields[target] = _textract_money(raw)
+                    if fields[target] is None:
+                        fields["issues"].append("valor total não interpretado")
+                elif target == "issue_date":
+                    fields[target] = _textract_date(raw)
+                    if fields[target] is None:
+                        fields["issues"].append("data não interpretada")
+                else:
+                    fields[target] = raw
+            elif typ == "OTHER":
+                if not fields["supplier_cnpj"]:
+                    match = re.search(r"\\b\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}\\b", raw)
+                    if match:
+                        fields["supplier_cnpj"] = match.group(0)
+                if not fields["payment_method"] and re.search(r"(?i)\\b(pix|d[eé]bito|cr[eé]dito|dinheiro|boleto)\\b", raw):
+                    fields["payment_method"] = raw
         for group in doc.get("LineItemGroups", []):
             for line in group.get("LineItems", []):
                 vals = {v.get("Type", {}).get("Text"): v.get("ValueDetection", {}).get("Text")
                         for v in line.get("LineItemExpenseFields", [])}
-                if vals.get("ITEM"):
-                    fields["items"].append({"description": vals["ITEM"], "quantity": None,
-                                            "unit": None, "total": None})
+                if not vals.get("ITEM"):
+                    continue
+                qty_raw = (vals.get("QUANTITY") or "").replace(",", ".").strip()
+                qty_match = re.match(r"^\\d+(?:\\.\\d+)?", qty_raw)
+                qty = float(qty_match.group(0)) if qty_match else None
+                unit = (vals.get("UNIT") or "").strip() or None
+                if not unit and qty_match:
+                    unit = qty_raw[qty_match.end():].strip() or None
+                fields["items"].append({"description": vals["ITEM"], "quantity": qty,
+                                        "unit": unit, "total": _textract_money(vals.get("PRICE"))})
     if not response.get("ExpenseDocuments"):
         fields["issues"].append("documento sem campos reconhecidos")
     fields["confidence"] = "medium" if confidences and min(confidences) >= 85 else "low"
     found = problems(fields)
     return {"engine": "amazon-textract-analyze-expense", "fields": fields,
             "key": None, "problems": found}
+
 
 def extract(data: bytes) -> dict:
     """Fields read from the picture plus which model produced them and what still looks wrong."""
