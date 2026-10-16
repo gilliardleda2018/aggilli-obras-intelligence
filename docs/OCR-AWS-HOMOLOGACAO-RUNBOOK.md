@@ -24,3 +24,10 @@ Data: 2026-10-16. Responsável: frente OCR, PR #19 Draft. Documento de handoff p
 
 ## Próximo gate
 Comprovação do workspace + compatibilidade do SDK + inferência sintética bem-sucedida. Sem esses três itens, a homologação permanece **BLOQUEADA**.
+
+## Evidência adicional: catálogo Bedrock (2026-10-16)
+- Consulta read-only `bedrock:ListFoundationModels` em `us-east-1` retornou modelos com entrada IMAGE e status ACTIVE:
+  - `anthropic.claude-haiku-5-5`
+  - `anthropic.claude-sonnet-5-5`
+- Esta descoberta é apenas catálogo regional. **Não demonstra autorização da conta para invocar, compatibilidade do SDK, nem workspace Claude Platform on AWS**. Não trocar o provedor para `bedrock` sem validação específica.
+- Nenhuma inferência, mudança de IAM ou configuração ECS foi executada.
