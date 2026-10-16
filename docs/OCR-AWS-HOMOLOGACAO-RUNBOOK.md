@@ -47,3 +47,8 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - Isso confirma apenas a avaliação da política IAM simulada; **não** comprova workspace, habilitação comercial, credenciais em runtime, nem execução de modelo.
 - Resultado anterior Bedrock `bedrock:InvokeModel` permanece `implicitDeny`. Os provedores são distintos; não confundir resultados.
 - Próximo bloqueio: workspace Claude Platform on AWS ausente na configuração ECS; validar sua existência e SDK antes de ativar.
+
+## Verificação do SDK oficial no CI
+- Commit `feaef4d1a1f650e3ee00935c16c81d2f83c824a0`: teste adicionado para verificar que o pacote instalado expõe `AnthropicAWS`, `AnthropicBedrockMantle` e `Anthropic`.
+- CI success em [38829505099](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38829505099) e [38829509196](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38829509196).
+- Isso valida a presença dos símbolos no SDK instalado pelo CI, mas não prova que os argumentos, credenciais, workspace ou chamadas reais funcionam.
