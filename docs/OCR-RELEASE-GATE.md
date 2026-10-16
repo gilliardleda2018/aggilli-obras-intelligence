@@ -33,3 +33,11 @@ Arquivos do PR #19 antes deste relatório: `backend/app/ocr.py`, `backend/tests/
 
 ## Coordenação entre instâncias
 A outra instância deve considerar os arquivos OCR como de propriedade desta frente até a conclusão do PR #19. Não sobrescrever alterações de outras frentes e comunicar mudanças compartilhadas por PR ou documentação.
+
+## Revisão pré-deploy — 2026-10-16
+- `main` atual: `21cc7240c1524f73085d4ba104d4baf2d43c9cee`; branch OCR divergiu (30 commits à frente e 23 atrás), merge-base `599bc2800ff665d9db0006c6588dedc7c83b2195`.
+- Comparação `main...fix/ocr-integration-safe` altera exclusivamente `backend/app/ocr.py`, testes OCR e documentação OCR.
+- CI do commit `f91a0e15f946fdd4b521723f75d5abe3e223a0dd` success em 38882514235 e 38882519908.
+- Workflow `.github/workflows/deploy.yml` executa build/push de **API e web**, migrações Alembic e reinicialização dos dois serviços. **Não** disparar workflow completo para ativar somente OCR sem plano de isolamento.
+- Gate adicional: reconciliar a branch com a `main` atual, sem sobrescrever trabalho das outras frentes; CI final após reconciliação; deploy backend-only com artefato imutável, validação de health e rollback, e ativação `DOC_AI_PROVIDER=textract` separadamente.
+- Enquanto esse gate estiver aberto: PR Draft, sem merge e sem deploy.
