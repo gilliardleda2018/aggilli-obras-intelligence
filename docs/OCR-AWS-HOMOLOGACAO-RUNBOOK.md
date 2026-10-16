@@ -41,3 +41,9 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - `iam:SimulatePrincipalPolicy` para `bedrock:InvokeModel` no perfil `arn:aws:bedrock:us-east-1:614471945241:inference-profile/us.anthropic.claude-haiku-5-5`, com a role `obras-ApiTaskRole-dZoLRIqsBvt6`, retornou `implicitDeny`.
 - Primeira simulação misturando `bedrock:InvokeModel` e `aws-external-anthropic:InvokeModel` falhou com `InvalidInput` por exigir informações distintas de autorização; esse erro não é evidência de permissão nem de negação para Claude Platform on AWS.
 - **Decisão:** não migrar silenciosamente para Bedrock, não editar IAM e não habilitar OCR. Requer avaliação específica da plataforma escolhida e privilégio mínimo.
+
+## IAM — Claude Platform on AWS, simulação separada
+- `iam:SimulatePrincipalPolicy` da role `obras-ApiTaskRole-dZoLRIqsBvt6`, ação `aws-external-anthropic:InvokeModel`, recurso `*`: decisão `allowed`.
+- Isso confirma apenas a avaliação da política IAM simulada; **não** comprova workspace, habilitação comercial, credenciais em runtime, nem execução de modelo.
+- Resultado anterior Bedrock `bedrock:InvokeModel` permanece `implicitDeny`. Os provedores são distintos; não confundir resultados.
+- Próximo bloqueio: workspace Claude Platform on AWS ausente na configuração ECS; validar sua existência e SDK antes de ativar.
