@@ -239,3 +239,32 @@ def test_fopag_contract_reconciliation_reports_without_changing_source():
             db.rollback()
     finally:
         engine.dispose()
+
+
+def test_financial_closing_preview_reads_persisted_payments_without_writing(env):
+    client, engine, ids, who = env
+    who["sub"] = "darlan"
+    with Session(engine) as db:
+        db.add(Membership(organization_id=db.scalar(select(Project.organization_id).where(
+            Project.id == ids["MG Tabocal"])), subject_id="finance-owner", role="OWNER"))
+        db.commit()
+    who["sub"] = "finance-owner"
+    expense = client.post(f'/api/v1/projects/{ids["MG Tabocal"]}/expenses', json={
+        "description": "Serviço de teste", "supplier": "Fornecedor teste",
+        "amount": "100.00", "category": "SERVICE"}).json()
+    assert expense["id"]
+    payment = client.post(f'/api/v1/expenses/{expense["id"]}/payments', json={
+        "amount": "40.00", "scheduled_date": "2026-10-16"}).json()
+    assert payment["status"] == "SCHEDULED"
+    before = client.get(f'/api/v1/projects/{ids["MG Tabocal"]}/finance/closing-preview')
+    assert before.status_code == 200
+    assert before.json()["rows"][0]["remaining"] == "100.00"
+    assert before.json()["rows"][0]["scheduled"] == "40.00"
+    confirmed = client.post(f'/api/v1/payments/{payment["id"]}/confirm', json={
+        "reference": "SIMULATED-REFERENCE-001"})
+    assert confirmed.status_code == 200
+    after = client.get(f'/api/v1/projects/{ids["MG Tabocal"]}/finance/closing-preview')
+    assert after.status_code == 200
+    assert after.json()["rows"][0]["paid"] == "40.00"
+    assert after.json()["rows"][0]["remaining"] == "60.00"
+    assert after.json()["closed"] is False and after.json()["money_moved"] is False
