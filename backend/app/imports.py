@@ -211,9 +211,11 @@ def commit(batch_id: str, payload: Commit, subject: str = Depends(require_identi
             db.add(expense)
             db.flush()
             if row.get("paid"):
-                db.add(Payment(expense_id=expense.id, amount=expense.amount, scheduled_date=when or date.today(), status="PAID",
-                               reference=row.get("reference") or f"planilha {batch.filename} linha {row['line']}", created_by=subject,
-                               confirmed_by=subject))
+                # A spreadsheet status is a claim, not verified settlement evidence.
+                # Preserve the declared status as a pending payment for reconciliation.
+                db.add(Payment(expense_id=expense.id, amount=expense.amount, scheduled_date=when or date.today(), status="SCHEDULED",
+                               reference=row.get("reference") or f"planilha {batch.filename} linha {row['line']} — pagamento declarado, não comprovado",
+                               created_by=subject))
         else:
             if not row.get("service_id") or db.scalar(select(ServiceItem.project_id).where(ServiceItem.id == row["service_id"])) != pid:
                 skipped += 1

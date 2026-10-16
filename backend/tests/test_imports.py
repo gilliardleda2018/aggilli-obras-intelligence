@@ -105,7 +105,11 @@ def test_csv_preview_commit_and_no_duplicates(env):
     assert (result["created"], result["skipped"]) == (3, 1)
     with Session(engine) as db:
         assert db.scalar(select(Expense.category).where(Expense.supplier == "Laércio")) == "LABOR"
-        assert db.scalar(select(func.count(Payment.id)).where(Payment.status == "PAID")) == 1  # only the row marked "pago"
+        assert db.scalar(select(func.count(Payment.id)).where(Payment.status == "PAID")) == 0  # spreadsheet claims are not verified payments
+        declared = db.scalar(select(Payment).join(Expense).where(Expense.supplier == "Darlan"))
+        assert declared is not None and declared.status == "SCHEDULED"
+        assert declared.confirmed_by is None
+        assert "não comprovado" in declared.reference
     assert client.post(f"/api/v1/imports/{body['id']}/commit", json={}).status_code == 409
     again = upload(client, CSV.encode("utf-8"), "fopag.csv").json()
     assert all(r.get("duplicate") for r in again["rows"] if r["project"])  # same file → flagged, never duplicated
