@@ -21,6 +21,10 @@ export default async function Overview() {
     <Callout tone="info" icon={Lock}>Os dados financeiros e operacionais são restritos aos usuários autorizados. <Link className="link" href="/login"><LogIn size={14}/> Entrar</Link></Callout>
   </>;
   const data = await getDataset();
+  if (data.source !== "api") return <>
+    <PageHead eyebrow="Banco de dados" title="Central de obras" subtitle="Não foi possível consultar os dados autenticados."/>
+    <Callout tone="info" icon={Lock}>A Central não exibirá dados de referência como se fossem dados reais. Verifique a sessão ou tente novamente.</Callout>
+  </>;
   const [intel, alerts, trends] = data.source === "api"
     ? await Promise.all([apiGet<PortfolioIntelligence>("/intelligence/portfolio"), apiGet<AlertsResponse>("/alerts"),
         apiGet<{weeks: TrendWeek[]}>("/trends?weeks=12")])
