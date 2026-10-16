@@ -31,3 +31,8 @@
 
 ## Critérios de publicação
 Testes automatizados, isolamento multiempresa, backup/restauração, controle de acesso, logs e homologação de medições e custos. Sem deploy automático de produção antes dos gates.
+
+
+## Extensão comercial: Aggilli Obras Full
+
+A edição Full é uma frente premium independente das funcionalidades existentes, com cobrança, conciliação e pagamentos condicionados à elegibilidade Stripe. O plano oficial de evolução, critérios de aceite, dependências e fases F00–F06 estão em [FULL-ROADMAP-IMPLEMENTACAO.md](FULL-ROADMAP-IMPLEMENTACAO.md). Consulte também a [visão de produto](FULL-VISAO-OFICIAL.md), o [manual preparatório](FULL-MANUAL-USUARIO.md) e a [proposta comercial modelo](FULL-PROPOSTA-COMERCIAL.md). Nenhum pagamento real está habilitado por esta documentação.
