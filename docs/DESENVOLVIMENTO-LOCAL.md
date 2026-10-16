@@ -8,13 +8,12 @@ powershell -ExecutionPolicy Bypass -File dev\run-local.ps1          # mantém o 
 powershell -ExecutionPolicy Bypass -File dev\run-local.ps1 -Reset   # recria o banco local
 ```
 
-Abra http://localhost:3100/login e clique em **Entrar como usuário de desenvolvimento**.
+Abra http://localhost:3100/login e entre com e-mail e senha de um usuário cadastrado (a entrada sem senha de desenvolvimento foi removida).
 
 ## Identidade de desenvolvimento
 - `backend/scripts/dev_identity.py` gera uma chave RSA e um JWKS em `backend/.dev/` (fora do git) e emite tokens com issuer
   `https://dev-obras.localhost`.
 - A API só aceita esse JWKS por `OIDC_JWKS_FILE`, que é **ignorado quando `APP_ENV=production`**.
-- O painel só oferece a entrada de desenvolvimento com `ALLOW_DEV_LOGIN=1` e em localhost. Ela grava a mesma sessão cifrada do login real.
 - O usuário `dev-owner` é OWNER da organização "Grupo MG (desenvolvimento)", criada pela importação.
 
 ## Testes

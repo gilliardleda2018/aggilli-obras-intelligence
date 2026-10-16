@@ -30,7 +30,6 @@ export default function LoginPage() {
         <h1>Entrar</h1>
         <p>Entre com o e-mail e a senha cadastrados pelo administrador da sua empresa.</p>
         <PasswordLogin/>
-        {process.env.ALLOW_DEV_LOGIN === "1" && <a className="btn" href="/api/auth/dev">Entrar como usuário de desenvolvimento</a>}
         {projectId && process.env.OIDC_CLIENT_ID && <details className="auth-alt"><summary>Entrar com identidade corporativa</summary>
           <LoginFlow projectId={projectId}/></details>}
       </div>
