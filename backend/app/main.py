@@ -98,3 +98,6 @@ app.include_router(fopag_finance_router)
 
 from .financial_advisor import router as financial_advisor_router
 app.include_router(financial_advisor_router)
+
+from .document_advisor import router as document_advisor_router
+app.include_router(document_advisor_router)

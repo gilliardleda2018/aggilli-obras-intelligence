@@ -131,3 +131,14 @@ export type FinancialDiagnosis = {
   agent: "financeiro-ia"; version: string; mode: "advisory";
   projects: number; findings: FinancialFinding[]; writes_performed: false;
 };
+
+
+export type DocumentAuditFinding = {
+  code: string; severity: "warning" | "info"; message: string;
+  recommended_action: string; evidence: Record<string, unknown>;
+};
+export type DocumentAuditDiagnosis = {
+  agent: "auditor-documental-ia"; version: string; mode: "advisory";
+  documents: {document_id: string; status: string; source_sha256: string; findings: DocumentAuditFinding[]}[];
+  writes_performed: false;
+};
