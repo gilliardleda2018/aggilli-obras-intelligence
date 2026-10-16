@@ -239,3 +239,21 @@ def test_fopag_contract_reconciliation_reports_without_changing_source():
             db.rollback()
     finally:
         engine.dispose()
+
+
+def test_fopag_apply_rejects_unreconciled_contracts_without_persistence(monkeypatch, capsys):
+    from scripts import import_tuntum
+    from app.models import Organization
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    monkeypatch.setattr(import_tuntum, "SessionLocal", lambda: Session(engine))
+    try:
+        result = import_tuntum.main(["--organization", "Grupo MG", "--owner-subject", "owner-test", "--apply"])
+        assert result == 2
+        assert "BLOQUEADO" in capsys.readouterr().out
+        with Session(engine) as db:
+            assert db.scalar(select(func.count(Organization.id))) == 0
+            assert db.scalar(select(func.count(Expense.id))) == 0
+            assert db.scalar(select(func.count(Payment.id))) == 0
+    finally:
+        engine.dispose()
