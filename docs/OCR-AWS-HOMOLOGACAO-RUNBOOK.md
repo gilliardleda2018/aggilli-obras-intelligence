@@ -65,3 +65,9 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - `DOC_AI_PROVIDER=textract` seleciona `AnalyzeExpense`, preservando os provedores existentes e a confirmação humana.
 - Simulação IAM da role ECS para `textract:AnalyzeExpense` retornou `implicitDeny`. A permissão precisa ser concedida de forma restrita antes de executar OCR real. Nenhuma permissão foi alterada.
 - Limitações atuais: mapeamento de campos Textract é parcial; OCR de comprovantes e orçamentos não pode ser declarado equivalente ao Claude sem testes de documentos representativos. Não promover produção antes de homologação real.
+
+## Desbloqueio IAM Textract — confirmado após ação do proprietário
+- Role `obras-ApiTaskRole-dZoLRIqsBvt6`: `ListRolePolicies` retornou `arquivos-e-leitura` e `obras-ocr-textract`.
+- `iam:SimulatePrincipalPolicy` para `textract:AnalyzeExpense`, recurso `*`, retornou `allowed`.
+- Permissão de política validada, mas **nenhuma leitura real foi executada**. Ainda falta validar runtime e imagem sintética em ambiente isolado.
+- Não alterar produção ou ativar `DOC_AI_PROVIDER=textract` antes de teste real e CI final.
