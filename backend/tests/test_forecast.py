@@ -121,3 +121,20 @@ def test_api_history_and_recalculation(api):
     who["sub"] = "outsider"
     assert client.get(f"/api/v1/projects/{pid}/intelligence").status_code == 404
     assert client.get("/api/v1/intelligence/portfolio").json()["projects"] == []
+
+
+def test_engineering_advice_is_read_only_and_tenant_scoped(api):
+    client, engine, (pid, _), who = api
+    with Session(engine) as db:
+        before = db.scalar(select(func.count(ForecastRun.id)))
+    response = client.get(f"/api/v1/projects/{pid}/engineering-advice")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["agent"] == "engenheiro-ia"
+    assert body["mode"] == "advisory"
+    assert body["project_id"] == pid
+    assert body["writes_performed"] is False
+    with Session(engine) as db:
+        assert db.scalar(select(func.count(ForecastRun.id))) == before
+    who["sub"] = "outsider"
+    assert client.get(f"/api/v1/projects/{pid}/engineering-advice").status_code == 404
