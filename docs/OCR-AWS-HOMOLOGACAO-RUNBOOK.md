@@ -52,3 +52,8 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - Commit `feaef4d1a1f650e3ee00935c16c81d2f83c824a0`: teste adicionado para verificar que o pacote instalado expõe `AnthropicAWS`, `AnthropicBedrockMantle` e `Anthropic`.
 - CI success em [38829505099](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38829505099) e [38829509196](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38829509196).
 - Isso valida a presença dos símbolos no SDK instalado pelo CI, mas não prova que os argumentos, credenciais, workspace ou chamadas reais funcionam.
+
+## SDK — construtores verificados em CI
+- Commit `0b1d49809c33bcdfd6f2b7d1f69311df4ff02a51` testa parâmetros `timeout` de `AnthropicAWS` e `aws_region`/`timeout` de `AnthropicBedrockMantle` via `inspect.signature`.
+- GitHub Actions success em [38830421524](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38830421524) e [38830424753](https://github.com/gilliardleda2018/aggilli-obras-intelligence/actions/runs/38830424753).
+- Esta validação é estática: não prova autenticação, assinatura de `messages.create`, resposta estruturada nem leitura real.
