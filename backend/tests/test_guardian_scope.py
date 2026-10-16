@@ -25,3 +25,13 @@ def test_docs_changes_need_no_critical_scope():
 def test_exact_path_and_prefix_are_distinct():
     assert scope.evaluate([".github/workflows/guardian.yml"], [".github/workflows/guardian.yml"]) == []
     assert scope.evaluate([".github/workflows/deploy.yml"], [".github/workflows/guardian.yml"])
+
+
+def test_exact_file_does_not_allow_sibling_with_same_prefix():
+    assert scope.evaluate([".github/workflows/guardian.yml.backup"], [".github/workflows/guardian.yml"]) == []  # noncritical sibling
+    assert scope.evaluate(["backend/app/security.py"], ["backend/app/sec"])
+
+
+def test_directory_scope_requires_trailing_separator():
+    assert scope.evaluate(["backend/app/security.py"], ["backend/app/"]) == []
+    assert scope.evaluate(["backend/application.py"], ["backend/app/"]) == []  # not in critical prefix
