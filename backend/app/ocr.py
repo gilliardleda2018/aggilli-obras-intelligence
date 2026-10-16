@@ -193,9 +193,9 @@ def _textract_date(raw: str | None) -> str | None:
     from datetime import date
     value = raw.strip()
     try:
-        if re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value):
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
             return date.fromisoformat(value).isoformat()
-        match = re.fullmatch(r"(\\d{1,2})/(\\d{1,2})/(\\d{4})", value)
+        match = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", value)
         if match:
             day, month, year = map(int, match.groups())
             return date(year, month, day).isoformat()
@@ -247,10 +247,10 @@ def _textract_extract(data: bytes) -> dict:
                     fields[target] = raw
             elif typ == "OTHER":
                 if not fields["supplier_cnpj"]:
-                    match = re.search(r"\\b\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}\\b", raw)
+                    match = re.search(r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b", raw)
                     if match:
                         fields["supplier_cnpj"] = match.group(0)
-                if not fields["payment_method"] and re.search(r"(?i)\\b(pix|d[eé]bito|cr[eé]dito|dinheiro|boleto)\\b", raw):
+                if not fields["payment_method"] and re.search(r"(?i)\b(pix|d[eé]bito|cr[eé]dito|dinheiro|boleto)\b", raw):
                     fields["payment_method"] = raw
         for group in doc.get("LineItemGroups", []):
             for line in group.get("LineItems", []):
@@ -259,7 +259,7 @@ def _textract_extract(data: bytes) -> dict:
                 if not vals.get("ITEM"):
                     continue
                 qty_raw = (vals.get("QUANTITY") or "").replace(",", ".").strip()
-                qty_match = re.match(r"^\\d+(?:\\.\\d+)?", qty_raw)
+                qty_match = re.match(r"^\d+(?:\.\d+)?", qty_raw)
                 qty = float(qty_match.group(0)) if qty_match else None
                 unit = (vals.get("UNIT") or "").strip() or None
                 if not unit and qty_match:
