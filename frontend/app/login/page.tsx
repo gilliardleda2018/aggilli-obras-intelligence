@@ -25,6 +25,8 @@ export default function LoginPage() {
     <section className="auth-panel">
       <div className="auth-box">
         <img className="auth-logo-mobile" src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
+        <img className="auth-product-logo" src="/emobras-logo.webp" alt="emobras — planeja, acompanha, evolui"
+             width={900} height={580}/>
         <h1>Entrar</h1>
         <p>Entre com o e-mail e a senha cadastrados pelo administrador da sua empresa.</p>
         <PasswordLogin/>
