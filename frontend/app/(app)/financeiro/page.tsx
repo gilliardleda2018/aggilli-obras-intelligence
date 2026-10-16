@@ -4,12 +4,14 @@ import {PageHead} from "../../../components/app-shell";
 import {PrintButton} from "../../../components/print-button";
 import {Callout, Card, Kpi, Meter} from "../../../components/ui";
 import {getDataset, summarize} from "../../../lib/data";
+import {apiGet, type FinancialDiagnosis} from "../../../lib/api";
+import {FinancialDiagnosisPanel} from "../../../components/financial-diagnosis";
 import {compactMoney, money, pct, percent, sum} from "../../../lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
 export default async function Financeiro() {
-  const data = await getDataset();
+  const [data, diagnosis] = await Promise.all([getDataset(), apiGet<FinancialDiagnosis>("/finance-agent/diagnosis")]);
   const t = summarize(data);
   const contracts = [...data.contracts].sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0));
   const payables = data.payables;
@@ -26,6 +28,7 @@ export default async function Financeiro() {
            icon={Scale} tone="warn"/>
     </div>
 
+    <FinancialDiagnosisPanel data={diagnosis}/>
     <div className="stack">
       <Card flush title="Empreiteiros e contratos" subtitle="Adiantamento e saldo como informados na fonte; o saldo nem sempre é contrato menos adiantamento">
         <div className="table-wrap"><table>
