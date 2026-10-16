@@ -13,7 +13,7 @@ const FIELD = {date: "Data", project: "Obra", supplier: "Fornecedor", descriptio
 const money = (v?: string | null) => (v ? Number(v).toLocaleString("pt-BR", {style: "currency", currency: "BRL"}) : "—");
 const br = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "sem data");
 
-export function Importer({projects}: {projects: {id: string; name: string}[]}) {
+export function Importer({projects, organizations = []}: {projects: {id: string; name: string}[]; organizations?: {id: string; name: string; role: string}[]}) {
   const [state, upload, uploading] = useActionState(uploadSpreadsheet, {ok: false, message: ""} as PreviewState);
   const [result, confirm, confirming] = useActionState(commitImport, {ok: false, message: ""} as PreviewState);
   const preview = state.preview;
@@ -37,6 +37,10 @@ export function Importer({projects}: {projects: {id: string; name: string}[]}) {
         <div><b>Envie a planilha como ela é</b><p className="hint">Excel (.xlsx) ou CSV. O sistema encontra o cabeçalho, reconhece as colunas,
           identifica a obra de cada linha, sugere a categoria e aponta repetições — você só confere e confirma.</p></div>
       </div>
+      {organizations.length === 1 && <input type="hidden" name="organization_id" value={organizations[0].id}/>}
+      {organizations.length > 1 && <label>Organização<select className="select" name="organization_id" required defaultValue="">
+        <option value="">Selecione a organização</option>{organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+      </select></label>}
       <div className="form-grid" style={{marginBottom: 0, gridTemplateColumns: "2fr 1fr"}}>
         <label>Arquivo<input className="input" type="file" name="file" accept=".xlsx,.xlsm,.csv" required style={{paddingTop: 6}}/></label>
         <label>Obra padrão (linhas sem obra)<select className="select" name="default_project_id" defaultValue="">
