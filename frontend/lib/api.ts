@@ -110,3 +110,14 @@ export type OrgUser = {membership_id: string; user_id: string; role: string; ema
   must_change_password: boolean; locked: boolean; last_login_at: string | null; local: boolean; temporary_password?: string | null};
 export type LicenseStatus = LicenseInfo & {configured: boolean; holder: string | null; email: string | null; last_error: string | null;
   can_manage: boolean};
+
+
+export type EngineeringFinding = {
+  code: string; severity: "high" | "warning" | "info"; message: string;
+  recommended_action: string; evidence: Record<string, unknown>;
+};
+export type EngineeringAdvice = {
+  agent: "engenheiro-ia"; version: string; mode: "advisory";
+  project_id: string; evaluated_on: string;
+  findings: EngineeringFinding[]; writes_performed: false;
+};
