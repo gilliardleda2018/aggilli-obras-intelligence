@@ -25,6 +25,8 @@ export async function uploadSpreadsheet(_prev: PreviewState, form: FormData): Pr
   if (file.size > 5 * 1024 * 1024) return {ok: false, message: "Arquivo acima de 5 MB."};
   const body = new FormData();
   body.append("file", file, file.name);
+  const organization = String(form.get("organization_id") ?? "");
+  if (organization) body.append("organization_id", organization);
   const project = String(form.get("default_project_id") ?? "");
   if (/^[a-f0-9-]{36}$/i.test(project)) body.append("default_project_id", project);
   try {
