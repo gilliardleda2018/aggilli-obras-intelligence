@@ -36,3 +36,8 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
 - `bedrock:ListInferenceProfiles`, us-east-1, consulta somente leitura: `us.anthropic.claude-haiku-5-5`, `us.anthropic.claude-sonnet-5-5`, `global.anthropic.claude-haiku-5-5` e `global.anthropic.claude-sonnet-5-5` com status `ACTIVE`.
 - Perfis disponíveis no catálogo **não** significam que a task role da API tenha permissão `bedrock:InvokeModel` nem que Claude Platform on AWS esteja configurado.
 - Proibido mudar `DOC_AI_PROVIDER` para `bedrock` apenas com esta evidência; falta validação de IAM, SDK e leitura sintética isolada.
+
+## IAM — verificação de autorização, 2026-10-16
+- `iam:SimulatePrincipalPolicy` para `bedrock:InvokeModel` no perfil `arn:aws:bedrock:us-east-1:614471945241:inference-profile/us.anthropic.claude-haiku-5-5`, com a role `obras-ApiTaskRole-dZoLRIqsBvt6`, retornou `implicitDeny`.
+- Primeira simulação misturando `bedrock:InvokeModel` e `aws-external-anthropic:InvokeModel` falhou com `InvalidInput` por exigir informações distintas de autorização; esse erro não é evidência de permissão nem de negação para Claude Platform on AWS.
+- **Decisão:** não migrar silenciosamente para Bedrock, não editar IAM e não habilitar OCR. Requer avaliação específica da plataforma escolhida e privilégio mínimo.
