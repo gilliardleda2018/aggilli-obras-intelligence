@@ -2,7 +2,7 @@
 import importlib.util
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "tools/guardian/check.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "tools/guardian/check.py"
 spec = importlib.util.spec_from_file_location("guardian_check", SCRIPT)
 guardian = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(guardian)
