@@ -92,3 +92,6 @@ app.include_router(documents_router)
 
 from .users import router as users_router
 app.include_router(users_router)
+
+from .fopag_finance_api import router as fopag_finance_router
+app.include_router(fopag_finance_router)
