@@ -1,11 +1,12 @@
 import Link from "next/link";
+import {Lock, LogIn} from "lucide-react";
 import {
   AlertTriangle, ArrowRight, Sun, Banknote, CalendarClock, ChevronRight, FileWarning, Hammer, HardHat, Scale, Wallet,
 } from "lucide-react";
 import {PageHead} from "../../components/app-shell";
 import {PrintButton} from "../../components/print-button";
 import {Badge, Callout, Card, Kpi, Meter} from "../../components/ui";
-import {getDataset, summarize} from "../../lib/data";
+import {getDataset, hasSession, summarize} from "../../lib/data";
 import {apiGet, type AlertsResponse, type PortfolioIntelligence, type TrendWeek} from "../../lib/api";
 import {AlertList} from "../../components/alert-list";
 import {WeekBars} from "../../components/week-bars";
@@ -15,7 +16,15 @@ import {compactMoney, money, pct, percent, reconciliation, sum} from "../../lib/
 export const dynamic = "force-dynamic";
 
 export default async function Overview() {
+  if (!(await hasSession())) return <>
+    <PageHead eyebrow="Acesso protegido" title="Central de obras" subtitle="Entre para visualizar as informações da sua organização."/>
+    <Callout tone="info" icon={Lock}>Os dados financeiros e operacionais são restritos aos usuários autorizados. <Link className="link" href="/login"><LogIn size={14}/> Entrar</Link></Callout>
+  </>;
   const data = await getDataset();
+  if (data.source !== "api") return <>
+    <PageHead eyebrow="Banco de dados" title="Central de obras" subtitle="Não foi possível consultar os dados autenticados."/>
+    <Callout tone="info" icon={Lock}>A Central não exibirá dados de referência como se fossem dados reais. Verifique a sessão ou tente novamente.</Callout>
+  </>;
   const [intel, alerts, trends] = data.source === "api"
     ? await Promise.all([apiGet<PortfolioIntelligence>("/intelligence/portfolio"), apiGet<AlertsResponse>("/alerts"),
         apiGet<{weeks: TrendWeek[]}>("/trends?weeks=12")])
