@@ -33,6 +33,8 @@ def _organization(db: Session, subject: str, organization_id: str | None) -> str
         return organization_id
     if not orgs:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if len(orgs) > 1:
+        raise HTTPException(status_code=422, detail="Selecione a organização para importar a planilha")
     return orgs[0]
 
 
