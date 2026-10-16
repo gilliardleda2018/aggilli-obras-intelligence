@@ -97,3 +97,11 @@ def test_direct_provider_requires_key(monkeypatch):
     monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=lambda **kwargs: object()))
     with pytest.raises(ocr.ExtractionUnavailable, match="Chave"):
         ocr._client()
+
+
+def test_sdk_provider_symbols_when_installed():
+    """Runtime contract check: CI installs the declared official Anthropic dependency."""
+    import anthropic
+    assert callable(getattr(anthropic, "AnthropicAWS", None)), "AnthropicAWS missing from installed SDK"
+    assert callable(getattr(anthropic, "AnthropicBedrockMantle", None)), "AnthropicBedrockMantle missing from installed SDK"
+    assert callable(getattr(anthropic, "Anthropic", None)), "Anthropic client missing from installed SDK"
