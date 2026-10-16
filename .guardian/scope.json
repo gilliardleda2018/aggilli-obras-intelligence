@@ -1,0 +1,9 @@
+{
+  "allow_prefixes": [
+    "tools/guardian/",
+    "backend/tests/test_guardian_",
+    ".github/workflows/guardian.yml",
+    "docs/GUARDIAN-",
+    ".agents/skills/emobras-guardian/"
+  ]
+}
