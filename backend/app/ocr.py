@@ -264,8 +264,15 @@ def _textract_extract(data: bytes) -> dict:
                 unit = (vals.get("UNIT") or "").strip() or None
                 if not unit and qty_match:
                     unit = qty_raw[qty_match.end():].strip() or None
+                # Textract PRICE may represent unit price; prefer explicit line total.
+                line_total = _textract_money(vals.get("TOTAL"))
+                if line_total is None:
+                    price = _textract_money(vals.get("PRICE"))
+                    unit_price = _textract_money(vals.get("UNIT_PRICE"))
+                    # Do not invent a line total when quantity > 1 and PRICE semantics are ambiguous.
+                    line_total = price if qty in (None, 1.0) and unit_price is None else None
                 fields["items"].append({"description": vals["ITEM"], "quantity": qty,
-                                        "unit": unit, "total": _textract_money(vals.get("PRICE"))})
+                                        "unit": unit, "total": line_total})
     if not response.get("ExpenseDocuments"):
         fields["issues"].append("documento sem campos reconhecidos")
     fields["confidence"] = "medium" if confidences and min(confidences) >= 85 else "low"
