@@ -163,7 +163,7 @@ def test_textract_brazilian_receipt_fields_and_fractional_items(monkeypatch):
         return {"Type": {"Text": t}, "ValueDetection": {"Text": v, "Confidence": 99}}
     response = {"ExpenseDocuments": [{"SummaryFields": [field(t, v) for t, v in summary],
         "LineItemGroups": [{"LineItems": [{"LineItemExpenseFields": [
-            field("ITEM", name), field("QUANTITY", qty), field("UNIT", unit), field("PRICE", price)
+            field("ITEM", name), field("QUANTITY", qty), field("UNIT", unit), field("TOTAL", price)
         ]} for name, qty, unit, price in lines]}]}]}
     class Client:
         def analyze_expense(self, **kwargs):
@@ -194,3 +194,20 @@ def test_textract_invalid_date_is_not_invented():
 def test_textract_invalid_money_is_not_invented():
     assert ocr._textract_money("R$ 1.234,56") == 1234.56
     assert ocr._textract_money("ilegível") is None
+
+
+def test_textract_ambiguous_unit_price_does_not_become_line_total(monkeypatch):
+    import sys
+    def f(t, v):
+        return {"Type": {"Text": t}, "ValueDetection": {"Text": v, "Confidence": 98}}
+    response = {"ExpenseDocuments": [{"SummaryFields": [f("TOTAL", "17,00")],
+        "LineItemGroups": [{"LineItems": [{"LineItemExpenseFields": [
+            f("ITEM", "FEIJÃO"), f("QUANTITY", "2"), f("PRICE", "8,50")]}]}]}]}
+    class Client:
+        def analyze_expense(self, **kwargs):
+            return response
+    monkeypatch.setitem(sys.modules, "boto3", SimpleNamespace(client=lambda *args, **kwargs: Client()))
+    monkeypatch.setenv("DOC_AI_PROVIDER", "textract")
+    result = ocr.extract(b"synthetic")
+    assert result["fields"]["items"][0]["total"] is None
+    assert result["fields"]["total_amount"] == 17.0
