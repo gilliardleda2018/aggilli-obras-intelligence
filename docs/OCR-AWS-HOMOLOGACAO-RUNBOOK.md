@@ -31,3 +31,8 @@ Comprovação do workspace + compatibilidade do SDK + inferência sintética bem
   - `anthropic.claude-sonnet-5-5`
 - Esta descoberta é apenas catálogo regional. **Não demonstra autorização da conta para invocar, compatibilidade do SDK, nem workspace Claude Platform on AWS**. Não trocar o provedor para `bedrock` sem validação específica.
 - Nenhuma inferência, mudança de IAM ou configuração ECS foi executada.
+
+## Evidência adicional: perfis de inferência Bedrock
+- `bedrock:ListInferenceProfiles`, us-east-1, consulta somente leitura: `us.anthropic.claude-haiku-5-5`, `us.anthropic.claude-sonnet-5-5`, `global.anthropic.claude-haiku-5-5` e `global.anthropic.claude-sonnet-5-5` com status `ACTIVE`.
+- Perfis disponíveis no catálogo **não** significam que a task role da API tenha permissão `bedrock:InvokeModel` nem que Claude Platform on AWS esteja configurado.
+- Proibido mudar `DOC_AI_PROVIDER` para `bedrock` apenas com esta evidência; falta validação de IAM, SDK e leitura sintética isolada.
