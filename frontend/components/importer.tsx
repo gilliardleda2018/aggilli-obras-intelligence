@@ -16,7 +16,8 @@ const br = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "
 export function Importer({projects, organizations = []}: {projects: {id: string; name: string; organization_id: string}[]; organizations?: {id: string; name: string; role: string}[]}) {
   const [state, upload, uploading] = useActionState(uploadSpreadsheet, {ok: false, message: ""} as PreviewState);
   const [result, confirm, confirming] = useActionState(commitImport, {ok: false, message: ""} as PreviewState);
-  const [organizationId, setOrganizationId] = useState(organizations.length === 1 ? organizations[0].id : "");
+  const [organizationId, setOrganizationId] = useState(organizations.filter(o => ["OWNER", "ADMIN", "ENGINEER", "FIELD_OPERATOR"].includes(o.role)).length === 1 ? organizations.find(o => ["OWNER", "ADMIN", "ENGINEER", "FIELD_OPERATOR"].includes(o.role))!.id : "");
+  const writableOrganizations = organizations.filter(o => ["OWNER", "ADMIN", "ENGINEER", "FIELD_OPERATOR"].includes(o.role));
   const visibleProjects = projects.filter(p => p.organization_id === organizationId);
   const preview = state.preview;
 
@@ -39,16 +40,18 @@ export function Importer({projects, organizations = []}: {projects: {id: string;
         <div><b>Envie a planilha como ela é</b><p className="hint">Excel (.xlsx) ou CSV. O sistema encontra o cabeçalho, reconhece as colunas,
           identifica a obra de cada linha, sugere a categoria e aponta repetições — você só confere e confirma.</p></div>
       </div>
-      {organizations.length === 1 && <input type="hidden" name="organization_id" value={organizations[0].id}/>}
-      {organizations.length > 1 && <label>Organização<select className="select" name="organization_id" required value={organizationId} onChange={e => setOrganizationId(e.target.value)}>
-        <option value="">Selecione a organização</option>{organizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+      {writableOrganizations.length === 1 && <input type="hidden" name="organization_id" value={writableOrganizations[0].id}/>}
+      {writableOrganizations.length > 1 && <label>Organização<select className="select" name="organization_id" required value={organizationId} onChange={e => setOrganizationId(e.target.value)}>
+        <option value="">Selecione a organização</option>{writableOrganizations.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
       </select></label>}
+      {writableOrganizations.length === 0 && <p className="feedback err">Seu perfil não tem permissão para importar nesta organização.</p>}
+      {writableOrganizations.length > 0 && visibleProjects.length === 0 && organizationId && <p className="feedback err">Não há obras cadastradas para esta organização.</p>}
       <div className="form-grid" style={{marginBottom: 0, gridTemplateColumns: "2fr 1fr"}}>
         <label>Arquivo<input className="input" type="file" name="file" accept=".xlsx,.xlsm,.csv" required style={{paddingTop: 6}}/></label>
         <label>Obra padrão (linhas sem obra)<select className="select" name="default_project_id" defaultValue="">
           <option value="">Identificar pela planilha</option>{visibleProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
       </div>
-      <div><button className="btn primary" disabled={uploading}><Upload/>{uploading ? "Lendo planilha…" : "Ler planilha"}</button>
+      <div><button className="btn primary" disabled={uploading || writableOrganizations.length === 0 || visibleProjects.length === 0}><Upload/>{uploading ? "Lendo planilha…" : "Ler planilha"}</button>
         {" "}<span className="feedback err">{state.message}</span></div>
     </form>
 
