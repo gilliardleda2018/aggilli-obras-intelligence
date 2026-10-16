@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import forecast
+from . import forecast, engineering_advisor
 from .db import get_db
 from .measurements import access
 from .models import Expense, ForecastRun, Measurement, Membership, Payment, Project, ServiceItem
@@ -133,3 +133,13 @@ def portfolio_intelligence(subject: str = Depends(require_identity), db: Session
                                                            "budget", "model", "version")}})
     db.commit()
     return {"projects": rows, "cash": _cash(db, [p.id for p in projects]) if projects else []}
+
+
+@router.get("/projects/{project_id}/engineering-advice")
+def engineering_advice(project_id: str, subject: str = Depends(require_identity), db: Session = Depends(get_db)):
+    """Read-only advisory, scoped to an authorized project; no ForecastRun writes."""
+    project = access(db, subject, project_id, READ_ROLES)
+    inputs = build_inputs(db, project)
+    schedule = forecast.schedule_forecast(inputs)
+    cost = forecast.cost_forecast(inputs)
+    return engineering_advisor.assess({"id": project.id}, schedule, cost, today=inputs.today)
