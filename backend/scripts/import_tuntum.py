@@ -180,6 +180,12 @@ def main(argv=None) -> int:
     data = json.loads(DATA.read_text(encoding="utf-8"))
     with SessionLocal() as db:
         report = run(db, args.organization, args.owner_subject, args.actor, data)
+        if args.apply and report.divergences:
+            db.rollback()
+            print("BLOQUEADO: divergências financeiras exigem conciliação documental antes de gravar.")
+            for line in report.divergences:
+                print("DIVERGÊNCIA —", line)
+            return 2
         if args.apply:
             db.commit()
         else:
