@@ -6,8 +6,9 @@ import {accessToken} from "../../../../lib/session";
 import {getDataset} from "../../../../lib/data";
 import {money, pct, percent, sum} from "../../../../lib/portfolio";
 import {ProjectForm, type ProjectDetails} from "./project-form";
-import {apiGet, type ProjectIntelligence, type TrendWeek} from "../../../../lib/api";
+import {apiGet, type ProjectIntelligence, type EngineeringAdvice, type TrendWeek} from "../../../../lib/api";
 import {WeekBars} from "../../../../components/week-bars";
+import {EngineeringAdvicePanel} from "../../../../components/engineering-advice";
 import {CostChart, CostSummary, Probability, ProgressChart, ScheduleSummary, br, modelLabel} from "../../../../components/forecast-ui";
 
 export const dynamic = "force-dynamic";
@@ -29,12 +30,13 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
   const back = <Link href="/obras" className="back"><ArrowLeft/>Obras</Link>;
   const token = await accessToken();
   if (!token) return <>{back}<Callout tone="info" icon={Lock}>Autenticação necessária. <a className="link" href="/login">Entrar</a></Callout></>;
-  const [details, dashboard, data, intel, trends] = await Promise.all([
+  const [details, dashboard, data, intel, trends, advice] = await Promise.all([
     get<ProjectDetails & {name: string; location: string; source: string | null}>("/projects/" + encodeURIComponent(id) + "/details", token),
     get<Dashboard>("/projects/" + encodeURIComponent(id) + "/dashboard", token),
     getDataset(),
     apiGet<ProjectIntelligence>("/projects/" + encodeURIComponent(id) + "/intelligence"),
     apiGet<{weeks: TrendWeek[]}>("/trends?weeks=16&project_id=" + encodeURIComponent(id)),
+    apiGet<EngineeringAdvice>("/projects/" + encodeURIComponent(id) + "/engineering-advice"),
   ]);
   if (!details || !dashboard) return <>{back}<Callout icon={Lock}>Obra indisponível ou acesso não autorizado.</Callout></>;
   const row = data.projects.find(project => project.key === id);
@@ -53,6 +55,7 @@ export default async function Detail({params}: {params: Promise<{id: string}>}) 
                 <Link className="btn" href={"/obras/" + id + "/localizacao"}><MapPin/>Localização</Link>
                 <Link className="btn" href={"/relatorios/obra/" + id}><FileBarChart/>Relatório</Link>
                 <Link className="btn primary" href={"/operacao/" + id}><Receipt/>Despesas e pagamentos</Link></>}/>
+    <EngineeringAdvicePanel advice={advice}/>
     <div className="kpis">
       <Kpi label="Avanço físico" value={measured ? dashboard.physical_progress.toLocaleString("pt-BR") + "%" : "Sem medição"}
            note={measured ? (dashboard.planning_complete ? "medições aprovadas" : "planejamento incompleto") : "cadastre serviços e aprove medições"}
