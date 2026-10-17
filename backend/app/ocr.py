@@ -106,12 +106,20 @@ def _client():
     provider = (os.environ.get("DOC_AI_PROVIDER") or "off").lower()
     if provider == "off":
         raise ExtractionUnavailable("Leitura automática desligada")
-    import anthropic
+    try:
+        import anthropic
+    except ImportError as error:
+        raise ExtractionUnavailable("SDK de leitura automática não instalado") from error
     if provider == "aws":
+        workspace = os.environ.get("ANTHROPIC_AWS_WORKSPACE_ID", "").strip()
+        if not workspace:
+            raise ExtractionUnavailable("Workspace Claude Platform on AWS não configurado")
         return anthropic.AnthropicAWS(timeout=60), ""
     if provider == "bedrock":
         return anthropic.AnthropicBedrockMantle(aws_region=os.environ.get("AWS_REGION") or "us-east-1", timeout=60), "anthropic."
     if provider == "anthropic":
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            raise ExtractionUnavailable("Chave da API Anthropic não configurada")
         return anthropic.Anthropic(timeout=60), ""
     raise ExtractionUnavailable(f"DOC_AI_PROVIDER desconhecido: {provider}")
 
@@ -126,6 +134,8 @@ def _ask(client, model: str, image: dict) -> dict:
         raise ExtractionFailed("Serviço de leitura indisponível") from error
     except anthropic.APIStatusError as error:
         raise ExtractionFailed(f"Serviço de leitura respondeu {error.status_code}") from error
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ExtractionFailed("Configuração ou resposta incompatível com o SDK de leitura") from error
     if response.stop_reason in ("refusal", "max_tokens"):
         raise ExtractionFailed("Leitura não concluída")
     text = next((block.text for block in response.content if block.type == "text"), "")
@@ -150,7 +160,7 @@ def problems(fields: dict) -> list[str]:
     if fields.get("access_key") and not parse_access_key(fields["access_key"]):
         found.append("chave de acesso não confere")
     total = _money(fields.get("total_amount"))
-    lines = [_money(item.get("total")) for item in fields.get("items") or []]
+    lines = [_money(item.get("total")) for item in fields.get("items") or [] if isinstance(item, dict)]
     if total is None and fields.get("kind") != "OUTRO":
         found.append("valor total não encontrado")
     elif total is not None and lines and all(v is not None for v in lines) and abs(sum(lines) - total) > Decimal("0.05"):
@@ -158,8 +168,123 @@ def problems(fields: dict) -> list[str]:
     return found
 
 
+
+def _textract_money(raw: str | None) -> float | None:
+    """Convert BRL/US money strings without silently accepting malformed values."""
+    if not raw:
+        return None
+    value = re.sub(r"[^0-9,.-]", "", raw.strip())
+    if not value or value.count("-") or value.count(",") > 1:
+        return None
+    if "," in value and "." in value:
+        value = value.replace(".", "").replace(",", ".") if value.rfind(",") > value.rfind(".") else value.replace(",", "")
+    elif "," in value:
+        value = value.replace(",", ".")
+    try:
+        amount = Decimal(value)
+        return float(amount) if amount.is_finite() and amount >= 0 else None
+    except InvalidOperation:
+        return None
+
+
+def _textract_date(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    from datetime import date
+    value = raw.strip()
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            return date.fromisoformat(value).isoformat()
+        match = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", value)
+        if match:
+            day, month, year = map(int, match.groups())
+            return date(year, month, day).isoformat()
+    except ValueError:
+        pass
+    return None
+
+
+def _textract_extract(data: bytes) -> dict:
+    """AnalyzeExpense to existing OCR contract. Suggestions only; never posts expenses."""
+    import boto3
+    from botocore.exceptions import BotoCoreError, ClientError
+    try:
+        response = boto3.client("textract", region_name=os.environ.get("AWS_REGION") or "us-east-1").analyze_expense(
+            Document={"Bytes": data}
+        )
+    except (BotoCoreError, ClientError) as error:
+        raise ExtractionFailed("Serviço Textract indisponível ou sem autorização") from error
+
+    fields = {"kind": "NOTA_FISCAL", "supplier_name": None, "supplier_cnpj": None,
+              "document_number": None, "access_key": None, "issue_date": None,
+              "total_amount": None, "items": [], "payment_method": None,
+              "site_reference": None, "confidence": "low", "issues": []}
+    mapping = {"VENDOR_NAME": "supplier_name", "NAME": "supplier_name",
+               "VENDOR_VAT_NUMBER": "supplier_cnpj", "INVOICE_RECEIPT_ID": "document_number",
+               "INVOICE_RECEIPT_DATE": "issue_date", "TOTAL": "total_amount"}
+    confidences = []
+    for doc in response.get("ExpenseDocuments", []):
+        for item in doc.get("SummaryFields", []):
+            typ = item.get("Type", {}).get("Text", "")
+            value = item.get("ValueDetection", {})
+            raw = value.get("Text", "").strip()
+            if not raw:
+                continue
+            target = mapping.get(typ)
+            if target:
+                if fields[target] is not None:
+                    continue
+                confidences.append(float(value.get("Confidence", 0)))
+                if target == "total_amount":
+                    fields[target] = _textract_money(raw)
+                    if fields[target] is None:
+                        fields["issues"].append("valor total não interpretado")
+                elif target == "issue_date":
+                    fields[target] = _textract_date(raw)
+                    if fields[target] is None:
+                        fields["issues"].append("data não interpretada")
+                else:
+                    fields[target] = raw
+            elif typ == "OTHER":
+                if not fields["supplier_cnpj"]:
+                    match = re.search(r"\b\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}\b", raw)
+                    if match:
+                        fields["supplier_cnpj"] = match.group(0)
+                if not fields["payment_method"] and re.search(r"(?i)\b(pix|d[eé]bito|cr[eé]dito|dinheiro|boleto)\b", raw):
+                    fields["payment_method"] = raw
+        for group in doc.get("LineItemGroups", []):
+            for line in group.get("LineItems", []):
+                vals = {v.get("Type", {}).get("Text"): v.get("ValueDetection", {}).get("Text")
+                        for v in line.get("LineItemExpenseFields", [])}
+                if not vals.get("ITEM"):
+                    continue
+                qty_raw = (vals.get("QUANTITY") or "").replace(",", ".").strip()
+                qty_match = re.match(r"^\d+(?:\.\d+)?", qty_raw)
+                qty = float(qty_match.group(0)) if qty_match else None
+                unit = (vals.get("UNIT") or "").strip() or None
+                if not unit and qty_match:
+                    unit = qty_raw[qty_match.end():].strip() or None
+                # Textract PRICE may represent unit price; prefer explicit line total.
+                line_total = _textract_money(vals.get("TOTAL"))
+                if line_total is None:
+                    price = _textract_money(vals.get("PRICE"))
+                    unit_price = _textract_money(vals.get("UNIT_PRICE"))
+                    # Do not invent a line total when quantity > 1 and PRICE semantics are ambiguous.
+                    line_total = price if qty in (None, 1.0) and unit_price is None else None
+                fields["items"].append({"description": vals["ITEM"], "quantity": qty,
+                                        "unit": unit, "total": line_total})
+    if not response.get("ExpenseDocuments"):
+        fields["issues"].append("documento sem campos reconhecidos")
+    fields["confidence"] = "medium" if confidences and min(confidences) >= 85 else "low"
+    found = problems(fields)
+    return {"engine": "amazon-textract-analyze-expense", "fields": fields,
+            "key": None, "problems": found}
+
+
 def extract(data: bytes) -> dict:
     """Fields read from the picture plus which model produced them and what still looks wrong."""
+    if (os.environ.get("DOC_AI_PROVIDER") or "off").lower() == "textract":
+        return _textract_extract(data)
     client, prefix = _client()
     image = _image_block(data)
     model = os.environ.get("DOC_AI_MODEL") or "claude-haiku-5-5"
