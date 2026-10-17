@@ -19,10 +19,10 @@ export default async function Obras() {
   return <>
     {data.error && <div style={{marginBottom: 16}}><Callout icon={AlertTriangle}>{data.error}</Callout></div>}
     <PageHead eyebrow={data.sourceLabel} title="Obras" subtitle="Todas as frentes, com situação, programação da semana, obrigações e contratos."
-              actions={data.source === "reference" ? <a className="btn primary" href="/login"><LogIn/>Entrar</a> : undefined}/>
-    {data.source === "reference" && <div style={{marginBottom: 18}}>
-      <Callout tone="info" icon={Lock}>Você está vendo a importação de referência. Entre com sua identidade para ver e editar as obras
-        cadastradas no banco de dados.</Callout></div>}
+              actions={data.source === "unavailable" ? <a className="btn primary" href="/login"><LogIn/>Entrar</a> : undefined}/>
+    {data.source === "unavailable" && <div style={{marginBottom: 18}}>
+      <Callout tone="info" icon={Lock}>As obras ficam no banco de dados, com acesso por empresa e função. Entre para ver e editar
+        as obras da sua organização.</Callout></div>}
     <div className="project-grid">
       {projects.map(project => {
         const status = STATUS[project.status] ?? {label: project.status, tone: "neutral" as const};

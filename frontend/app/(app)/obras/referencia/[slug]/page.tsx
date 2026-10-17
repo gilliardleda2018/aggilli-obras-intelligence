@@ -1,16 +1,18 @@
 import Link from "next/link";
-import {notFound} from "next/navigation";
+import {notFound, redirect} from "next/navigation";
 import {AlertTriangle, ArrowLeft, CalendarClock, FileSignature, HardHat, Wallet} from "lucide-react";
 import {PageHead} from "../../../../../components/app-shell";
 import {Callout, Card, Kpi, Meter} from "../../../../../components/ui";
 import {contracts, payroll} from "../../../../../lib/tuntum-data";
+import {hasSession} from "../../../../../lib/data";
 import {money, pct, percent, projectBySlug, projectSummaries, SOURCE} from "../../../../../lib/portfolio";
 
-export function generateStaticParams() {
-  return projectSummaries().map(project => ({slug: project.slug}));
-}
+// Real FOPAG data: rendered per request and only for a signed-in user (the layout redirect alone does not stop
+// this page from rendering into the response payload).
+export const dynamic = "force-dynamic";
 
 export default async function ReferenceProject({params}: {params: Promise<{slug: string}>}) {
+  if (!(await hasSession())) redirect("/login");
   const {slug} = await params;
   const name = projectBySlug(slug);
   if (!name) notFound();

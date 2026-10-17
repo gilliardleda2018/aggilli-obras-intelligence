@@ -1,12 +1,12 @@
 import {accessToken} from "./session";
-import {activities, contracts as refContracts, locations, payroll, suppliers} from "./tuntum-data";
-import {slug, sum} from "./portfolio";
+import {sum} from "./portfolio";
 
 /**
- * Single data source for the app pages. With an authenticated session everything comes from the API
- * (PostgreSQL); otherwise the reference import (FOPAG 28/08/2026) is shown and clearly labelled as such.
+ * Single data source for the app pages: everything comes from the API (PostgreSQL), scoped to the session.
+ * Without a session, or when the API fails, the dataset is empty — never the reference import (real FOPAG data),
+ * which would otherwise reach anonymous visitors (and other organizations) inside the page payload.
  */
-export type Source = "api" | "reference";
+export type Source = "api" | "unavailable";
 
 export type ProjectRow = {
   key: string; name: string; href: string; status: string; municipality: string | null;
@@ -41,7 +41,7 @@ export async function hasSession(): Promise<boolean> {
 
 export async function getDataset(): Promise<Dataset> {
   const token = await accessToken();
-  if (!token) return reference();
+  if (!token) return unavailable("Entre no sistema para ver os dados da sua organização.");
   const get = async <T>(path: string): Promise<T> => {
     const response = await fetch(API + "/api/v1" + path, {headers: {Authorization: "Bearer " + token}, cache: "no-store"});
     if (!response.ok) throw new Error(String(response.status));
@@ -77,43 +77,13 @@ export async function getDataset(): Promise<Dataset> {
         scheduled: n(p.scheduled), paid: n(p.paid), outstanding: n(p.outstanding), notes: p.notes})),
     };
   } catch (error) {
-    return {...reference(), error: "Não foi possível carregar os dados do banco (" + String(error) + "). Exibindo a importação de referência."};
+    return unavailable("Não foi possível carregar os dados do banco (" + String(error) + "). Tente novamente.");
   }
 }
 
-function reference(): Dataset {
-  const href = (name: string) => "/obras/referencia/" + slug(name);
-  const debts = new Set(suppliers.map(s => s.name));
-  return {
-    source: "reference",
-    sourceLabel: "Importação de referência",
-    weekLabel: "FOPAG 28/08/2026",
-    projects: locations.map(name => {
-      const items = payroll.filter(item => item.project === name);
-      const own = refContracts.filter(contract => contract.project === name);
-      return {
-        key: slug(name), name, href: href(name), status: "IN_PROGRESS", municipality: "Tuntum",
-        weekly: sum(items.map(item => item.amount)), paid: 0,
-        open: sum(items.filter(item => !debts.has(item.name)).map(item => item.amount)) +
-          sum(items.filter(item => debts.has(item.name)).map(item => suppliers.find(s => s.name === item.name)!.debt)),
-        flagged: items.filter(item => item.notes).length,
-        activity: activities.find(activity => activity.project === name)?.description ?? null,
-        contracts: {count: own.length, total: sum(own.map(c => c.total)), advance: sum(own.map(c => c.advance)), balance: sum(own.map(c => c.balance)),
-          advanceValued: sum(own.filter(c => c.total).map(c => c.advance))},
-        physical: null, budget: null, latitude: null, longitude: null,
-      };
-    }),
-    schedule: payroll.map((item, index) => ({
-      key: String(index), supplier: item.name, project: item.project,
-      projectHref: locations.includes(item.project) ? href(item.project) : "/obras", work: item.work, category: item.category,
-      notes: item.notes ?? null, amount: item.amount, status: "SCHEDULED", date: "2026-08-28",
-    })),
-    contracts: refContracts.map(c => ({contractor: c.name, project: c.project, projectHref: href(c.project),
-      total: c.total || null, advance: c.advance, balance: c.balance})),
-    payables: suppliers.map(s => ({supplier: s.name, project: payroll.find(item => item.name === s.name)?.project ?? "Diversas obras",
-      description: "Saldo devedor relatado ao fornecedor", amount: s.debt, scheduled: s.planned, paid: 0, outstanding: s.debt,
-      notes: payroll.find(item => item.name === s.name)?.notes ?? null})),
-  };
+function unavailable(error: string): Dataset {
+  return {source: "unavailable", sourceLabel: "Dados indisponíveis", weekLabel: "Sem dados", error,
+    projects: [], schedule: [], contracts: [], payables: []};
 }
 
 export function summarize(data: Dataset) {
@@ -129,8 +99,7 @@ export function summarize(data: Dataset) {
     paid: sum(data.schedule.filter(row => row.status === "PAID").map(row => row.amount)),
     flagged: data.schedule.filter(row => row.notes).length,
     contractTotal, contractAdvance, contractAdvanceValued, contractBalance: sum(data.contracts.map(c => c.balance ?? 0)), contractCount: data.contracts.length,
-    open: sum(data.payables.map(p => p.outstanding)) + (data.source === "reference"
-      ? sum(data.schedule.filter(row => !data.payables.some(p => p.supplier === row.supplier)).map(row => row.amount)) : 0),
+    open: sum(data.payables.map(p => p.outstanding)),
     debt: sum(data.payables.filter(p => p.description.startsWith("Saldo devedor")).map(p => p.outstanding)),
     debtCount: data.payables.filter(p => p.description.startsWith("Saldo devedor")).length,
     projects: works.length, measured: works.filter(p => p.physical).length,
