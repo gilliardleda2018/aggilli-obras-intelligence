@@ -10,8 +10,8 @@ import type {LicenseInfo} from "../lib/api";
 
 type Item = {href: string; label: string; icon: typeof LayoutDashboard; soon?: boolean; manager?: boolean};
 type Account = {mustChange: boolean; manager: boolean; license: LicenseInfo} | null;
-const NAV: {group: string; items: Item[]}[] = [
-  {group: "Visão", items: [
+const NAV: {group: string; tint: string; items: Item[]}[] = [
+  {group: "Visão", tint: "visao", items: [
     {href: "/simples", label: "Modo simples", icon: Sun},
     {href: "/", label: "Visão geral", icon: LayoutDashboard},
     {href: "/inteligencia", label: "Inteligência", icon: BrainCircuit},
@@ -19,16 +19,16 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/obras", label: "Obras", icon: Building2},
     {href: "/mapa", label: "Mapa", icon: Map},
   ]},
-  {group: "Alimentar", items: [
+  {group: "Alimentar", tint: "alimentar", items: [
     {href: "/importar", label: "Importar planilha", icon: Upload},
     {href: "/ajuda", label: "Como usar", icon: CircleHelp},
   ]},
-  {group: "Financeiro", items: [
+  {group: "Financeiro", tint: "financeiro", items: [
     {href: "/fopag", label: "FOPAG semanal", icon: CalendarClock},
     {href: "/financeiro", label: "Contratos e obrigações", icon: Wallet},
     {href: "/conciliacao", label: "Conciliação", icon: Scale},
   ]},
-  {group: "Campo", items: [
+  {group: "Campo", tint: "campo", items: [
     {href: "/diario", label: "Diário de obra", icon: Camera},
     {href: "/documentos", label: "Notas e recibos", icon: FileText},
     {href: "/atividades", label: "Atividades", icon: HardHat},
@@ -36,7 +36,7 @@ const NAV: {group: string; items: Item[]}[] = [
     {href: "/materiais", label: "Materiais", icon: Package},
     {href: "/relatorios", label: "Relatórios", icon: FileBarChart},
   ]},
-  {group: "Administração", items: [
+  {group: "Administração", tint: "admin", items: [
     {href: "/usuarios", label: "Usuários", icon: Users, manager: true},
     {href: "/licenca", label: "Licença do sistema", icon: ShieldCheck, manager: true},
     {href: "/conta", label: "Minha conta", icon: UserCog},
@@ -83,7 +83,7 @@ export function AppShell({children, source, alertsOpen = 0, account = null}:
       <Link href="/" className="brand brand-logo" aria-label="Aggilli Obras Intelligence — início">
         <img src="/aggilli-intelligence.webp" alt="Aggilli Intelligence" width={1400} height={320}/>
         <small>OBRAS INTELLIGENCE</small></Link>
-      {NAV.map(group => <div key={group.group}>
+      {NAV.map(group => <div key={group.group} className={"nav-section nav-" + group.tint}>
         <div className="nav-group">{group.group}</div>
         {group.items.filter(item => !item.manager || account?.manager).map(item => {
           const Icon = item.icon;

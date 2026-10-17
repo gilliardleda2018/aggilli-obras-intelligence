@@ -46,16 +46,16 @@ export function ProgressChart({data}: {data: ProjectIntelligence}) {
   const s = data.schedule;
   const last = actual[actual.length - 1];
   const band = s.status === "ok" && last ? {
-    name: "Faixa de previsão (P10–P90)", color: "#0e7c86",
+    name: "Faixa de previsão (P10–P90)", color: "#3b6fb6",
     lower: [last, {x: s.finish_p90!, y: 100}], upper: [last, {x: s.finish_p10!, y: 100}],
   } : undefined;
-  return <TimeChart ariaLabel="Curva S do avanço físico" yMax={100} yFormat={v => v.toFixed(0) + "%"} band={band}
+  return <TimeChart ariaLabel="Curva S do avanço físico" yMax={100} yFormat="percent" band={band}
     series={[
-      {name: "Avanço medido", color: "#0f9d58", points: actual},
+      {name: "Avanço medido", color: "#2f9a7e", points: actual},
       {name: "Linha de base contratual", color: "#8a94a6", points: data.series.baseline.map(p => ({x: p.date, y: p.progress})), dashed: true},
-      ...(s.status === "ok" && last ? [{name: "Previsão central (P50)", color: "#0e7c86", points: [last, {x: s.finish_p50!, y: 100}], dashed: true}] : []),
+      ...(s.status === "ok" && last ? [{name: "Previsão central (P50)", color: "#3b6fb6", points: [last, {x: s.finish_p50!, y: 100}], dashed: true}] : []),
     ]}
-    markers={[...(s.contract_end ? [{x: s.contract_end, label: "Término contratual", color: "#b7791f"}] : [])]}/>;
+    markers={[...(s.contract_end ? [{x: s.contract_end, label: "Término contratual", color: "#b07a30"}] : [])]}/>;
 }
 
 /** Cumulative cost with projection to the estimated final cost. */
@@ -64,12 +64,11 @@ export function CostChart({data}: {data: ProjectIntelligence}) {
   const c = data.cost, s = data.schedule;
   const last = actual[actual.length - 1];
   const end = s.status === "ok" ? s.finish_p50! : s.contract_end;
-  const projected = c.status === "ok" && last && end ? [{name: "Custo final estimado", color: "#d1435b", points: [last, {x: end, y: c.eac_p50!}], dashed: true}] : [];
+  const projected = c.status === "ok" && last && end ? [{name: "Custo final estimado", color: "#a4583c", points: [last, {x: end, y: c.eac_p50!}], dashed: true}] : [];
   const budget = c.budget && actual.length ? [{name: "Orçamento", color: "#8a94a6", dashed: true,
     points: [{x: actual[0].x, y: c.budget}, {x: end ?? last.x, y: c.budget}]}] : [];
-  const band = c.status === "ok" && last && end ? {name: "Faixa do custo final", color: "#d1435b",
+  const band = c.status === "ok" && last && end ? {name: "Faixa do custo final", color: "#a4583c",
     lower: [last, {x: end, y: c.eac_low!}], upper: [last, {x: end, y: c.eac_high!}]} : undefined;
-  return <TimeChart ariaLabel="Custo acumulado e projeção" band={band}
-    yFormat={v => v >= 1000 ? "R$ " + (v / 1000).toLocaleString("pt-BR", {maximumFractionDigits: 0}) + " mil" : "R$ " + v.toFixed(0)}
-    series={[{name: "Custo incorrido acumulado", color: "#3367d6", points: actual}, ...budget, ...projected]}/>;
+  return <TimeChart ariaLabel="Custo acumulado e projeção" band={band} yFormat="money"
+    series={[{name: "Custo incorrido acumulado", color: "#3b6fb6", points: actual}, ...budget, ...projected]}/>;
 }

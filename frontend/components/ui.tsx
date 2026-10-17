@@ -1,4 +1,4 @@
-import type {ReactNode} from "react";
+import type {CSSProperties, ReactNode} from "react";
 import type {LucideIcon} from "lucide-react";
 
 export type Tone = "brand" | "ok" | "warn" | "danger" | "info";
@@ -20,10 +20,14 @@ export function Card({title, subtitle, action, children, flush}:
   </section>;
 }
 
+const METER_TONE: Record<string, string> = {"var(--ok)": "var(--sage)", "var(--warn)": "var(--ochre)", "var(--danger)": "var(--terra)"};
+
 export function Meter({value, tone}: {value: number; tone?: string}) {
   const width = Math.max(0, Math.min(100, value));
-  return <div className="meter" role="meter" aria-valuenow={width} aria-valuemin={0} aria-valuemax={100}>
-    <span style={{width: width + "%", background: tone}}/>
+  const color = tone ? METER_TONE[tone] ?? tone : "var(--brand)";
+  return <div className="meter" role="meter" aria-valuenow={width} aria-valuemin={0} aria-valuemax={100}
+              style={{"--m": color} as CSSProperties}>
+    <span style={{width: width + "%"}}/>
   </div>;
 }
 
