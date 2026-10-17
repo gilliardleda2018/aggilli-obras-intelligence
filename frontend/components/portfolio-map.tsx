@@ -29,8 +29,9 @@ export function PortfolioMap({projects, apiKey, mapId}: {projects: MapProject[];
     (!filters.municipality || p.municipality === filters.municipality) && (!filters.organization || p.organization === filters.organization) &&
     (!filters.responsible || p.responsible === filters.responsible) && (!filters.status || p.status === filters.status) &&
     (!filters.risk || p.risk.level === filters.risk)), [projects, filters]);
-  const located = visible.filter(p => p.location.latitude !== null);
-  const missing = visible.filter(p => p.location.latitude === null);
+  // Memoized: a new array on every render would rebuild all markers and reset the viewport on any re-render.
+  const located = useMemo(() => visible.filter(p => p.location.latitude !== null), [visible]);
+  const missing = useMemo(() => visible.filter(p => p.location.latitude === null), [visible]);
 
   useEffect(() => {
     if (!apiKey || !element.current) return;
@@ -49,7 +50,7 @@ export function PortfolioMap({projects, apiKey, mapId}: {projects: MapProject[];
         const position = {lat: p.location.latitude!, lng: p.location.longitude!};
         bounds.extend(position);
         const pin = new PinElement({background: RISK[p.risk.level as RiskLevel].color, borderColor: "#ffffff", glyphColor: "#ffffff"});
-        const marker = new AdvancedMarkerElement({position, title: p.name, content: pin.element});
+        const marker = new AdvancedMarkerElement({position, title: p.name, content: pin});
         marker.addListener("click", () => { s.info!.setContent(infoHtml(p)); s.info!.open({map: s.map, anchor: marker}); });
         return marker;
       });

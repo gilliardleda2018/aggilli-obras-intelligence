@@ -44,13 +44,13 @@ export function LocationEditor({projectId, address, location, canEdit, apiKey, m
           setDraft({latitude: e.latLng.lat(), longitude: e.latLng.lng(), source: "MAP", label: "ponto marcado no mapa"}));
       }
       if (saved && !r.saved) r.saved = new AdvancedMarkerElement({map: r.map, position: saved, title: "Localização confirmada",
-        content: new PinElement({background: "#0e7c86", borderColor: "#ffffff", glyphColor: "#ffffff"}).element});
+        content: new PinElement({background: "#0e7c86", borderColor: "#ffffff", glyphColor: "#ffffff"})});
       if (r.saved && saved) r.saved.position = saved;
       else if (r.saved) { r.saved.map = null; r.saved = undefined; }
       if (draft) {
         if (!r.draft) {
           r.draft = new AdvancedMarkerElement({map: r.map, gmpDraggable: canEdit, title: "Nova localização (não salva)",
-            content: new PinElement({background: "#d97706", borderColor: "#ffffff", glyphColor: "#ffffff"}).element});
+            content: new PinElement({background: "#d97706", borderColor: "#ffffff", glyphColor: "#ffffff"})});
           r.draft.addListener("dragend", () => {
             const p = r.draft!.position as google.maps.LatLngLiteral;
             setDraft({latitude: p.lat, longitude: p.lng, source: "MAP", label: "pino ajustado no mapa"});
@@ -66,18 +66,24 @@ export function LocationEditor({projectId, address, location, canEdit, apiKey, m
   }, [apiKey, mapId, canEdit, draft, saved?.lat, saved?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Street View: only as a reference of the surroundings, with the image date — never as evidence of current progress.
+  // The container is shown before the panorama is built (a panorama created in a hidden element renders blank) and the
+  // panorama is reused when the point changes.
+  const pano = useRef<google.maps.StreetViewPanorama | null>(null);
   useEffect(() => {
     if (!apiKey || !point || !panoEl.current) { setStreet(""); return; }
     let cancelled = false;
+    setStreet("");
     loadGoogleMaps(apiKey).then(async maps => {
       const {StreetViewService, StreetViewPanorama, StreetViewSource} = await maps.importLibrary("streetView") as google.maps.StreetViewLibrary;
-      new StreetViewService().getPanorama({location: point, radius: 50, sources: [StreetViewSource.OUTDOOR]}, (data, status) => {
-        if (cancelled || !panoEl.current) return;
-        if (status !== "OK" || !data?.location?.pano) { setStreet("none"); return; }
-        new StreetViewPanorama(panoEl.current, {pano: data.location.pano, addressControl: false, motionTracking: false});
-        setStreet(data.imageDate ?? "data não informada");
-      });
-    });
+      const data = await new StreetViewService().getPanorama({location: point, radius: 50, sources: [StreetViewSource.OUTDOOR]})
+        .then(r => r.data, () => null);  // ZERO_RESULTS rejects the promise: no coverage
+      if (cancelled || !panoEl.current) return;
+      if (!data?.location?.pano) { setStreet("none"); return; }
+      panoEl.current.style.display = "block";
+      if (pano.current) pano.current.setPano(data.location.pano);
+      else pano.current = new StreetViewPanorama(panoEl.current, {pano: data.location.pano, addressControl: false, motionTracking: false});
+      setStreet(data.imageDate ?? "data não informada");
+    }).catch(() => { if (!cancelled) setStreet("none"); });
     return () => { cancelled = true; };
   }, [apiKey, point?.lat, point?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
