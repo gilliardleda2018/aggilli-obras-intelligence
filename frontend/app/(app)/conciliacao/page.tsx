@@ -2,7 +2,7 @@ import {AlertTriangle, BadgeCheck, CalendarClock, Scale, ShieldAlert} from "luci
 import {PageHead} from "../../../components/app-shell";
 import {Callout, Card, Kpi} from "../../../components/ui";
 import {getDataset, summarize} from "../../../lib/data";
-import {compactMoney, money, reconciliation} from "../../../lib/portfolio";
+import {compactMoney, money} from "../../../lib/portfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +31,6 @@ export default async function Conciliacao() {
         {!flagged.length && <p className="empty">Nenhuma observação pendente.</p>}
       </Card>
       <div className="stack">
-        {data.source === "reference" && <Card flush title="Divergências entre relato e folha" subtitle="Registradas na importação de referência">
-          {reconciliation.map(item => <div key={item.title} className="list-item">
-            <span className="dot-icon tone-warn"><AlertTriangle/></span><div><b>{item.title}</b><small>{item.detail}</small></div>
-          </div>)}
-        </Card>}
         <Callout tone="info" icon={BadgeCheck}>Fluxo do sistema: <b>despesa registrada → pagamento programado → pagamento confirmado
           com comprovante → baixa do saldo</b>, com rateio entre obras aprovado e trilha de auditoria.</Callout>
       </div>
