@@ -5,7 +5,7 @@ export type Tone = "brand" | "ok" | "warn" | "danger" | "info";
 
 export function Kpi({label, value, note, icon: Icon, tone = "brand"}:
   {label: string; value: string; note: string; icon: LucideIcon; tone?: Tone}) {
-  return <article className="card kpi">
+  return <article className={"card kpi kpi-" + tone}>
     <div className="kpi-top">{label}<span className={"kpi-icon tone-" + tone}><Icon/></span></div>
     <div className="kpi-value">{value}</div>
     <div className="kpi-note">{note}</div>
